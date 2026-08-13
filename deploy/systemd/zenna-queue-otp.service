@@ -1,0 +1,20 @@
+; Systemd alternative to deploy/supervisor/zenna-queue-otp.conf.
+; Install: sudo cp deploy/systemd/*.service /etc/systemd/system/
+;          sudo systemctl daemon-reload
+;          sudo systemctl enable --now zenna-queue-otp
+; Adjust User/Group, WorkingDirectory, and the php binary path for your server.
+
+[Unit]
+Description=Zenna Craft Queue Worker (OTP)
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+Restart=always
+RestartSec=3
+WorkingDirectory=/var/www/zenna-craft
+ExecStart=/usr/bin/php artisan queue:work database --queue=otp --sleep=1 --tries=3 --max-time=3600
+
+[Install]
+WantedBy=multi-user.target

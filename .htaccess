@@ -1,0 +1,30 @@
+# php -- BEGIN cPanel-generated handler, do not edit
+# Set the "ea-php83" package as the default "PHP" programming language.
+<IfModule mime_module>
+  AddHandler application/x-httpd-ea-php83 .php .php8 .phtml
+</IfModule>
+# php -- END cPanel-generated handler, do not edit
+
+# Block direct web access to sensitive files
+<FilesMatch "^\.env">
+    Require all denied
+</FilesMatch>
+<FilesMatch "\.(log|lock|sql|sqlite|md)$">
+    Require all denied
+</FilesMatch>
+<FilesMatch "^(composer\.(json|lock)|package(-lock)?\.json|artisan|phpunit\.xml|\.htaccess)$">
+    Require all denied
+</FilesMatch>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Block direct web access to internal Laravel folders
+    # (storage/ is intentionally not blocked here: public/storage is a symlink
+    # to storage/app/public and must stay reachable at the conventional /storage/ URL)
+    RewriteRule ^(app|bootstrap|config|database|resources|routes|tests|vendor|node_modules|\.git)(/.*)?$ - [F,L]
+
+    # Route every other request through the public/ folder
+    RewriteCond %{REQUEST_URI} !^/public/
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
