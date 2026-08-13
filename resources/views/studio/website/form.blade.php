@@ -4,12 +4,17 @@
 @push('studio-styles')@include('studio.products.partials._submodule-styles')
 <style>
     .zc-cfg{max-width:960px;margin:0 auto;}
-    .zc-cfg-sec{margin-top:1.4rem;border:1px solid var(--studio-border);border-radius:14px;overflow:hidden;}
-    .zc-cfg-sec > h3{margin:0;padding:0.8rem 1.1rem;background:var(--studio-surface-soft);font-size:0.92rem;font-weight:800;color:var(--studio-text);border-bottom:1px solid var(--studio-border);text-align:center;}
+    .zc-cfg-sec{margin-top:1.1rem;background:var(--studio-surface);border:1px solid var(--studio-border);border-radius:18px;overflow:hidden;box-shadow:0 1px 2px rgba(15,23,42,.05),0 22px 48px -38px rgba(15,23,42,.30);}
+    .zc-cfg-sec > h3{margin:0;padding:.95rem 1.25rem;background:var(--studio-surface-soft);font-size:0.92rem;font-weight:800;color:var(--studio-text);border-bottom:1px solid var(--studio-border);text-align:center;}
     .zc-cfg-desc{padding:0.7rem 1.1rem 0;font-size:0.8rem;color:var(--studio-muted);}
-    .zc-cfg-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1rem 1.25rem;padding:1.1rem;}
-    .zc-cfg-f label{display:block;font-size:0.78rem;font-weight:700;color:var(--studio-text);margin-bottom:0.35rem;}
+    .zc-cfg-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.15rem 1.4rem;padding:1.25rem;}
+    .zc-cfg-f label{display:block;font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--studio-muted);margin-bottom:.45rem;}
     .zc-cfg-f.full{grid-column:1/-1;}
+    /* Higher specificity than ".zc-cfg-f label" above — see form.blade.php
+       for why the checkbox row needs this rather than the generic label rule. */
+    .zc-cfg-f--checkbox{align-self:end;}
+    .zc-cfg-f label.zc-cfg-check{display:inline-flex;align-items:center;gap:.65rem;margin-bottom:0;font-size:.85rem;font-weight:700;text-transform:none;letter-spacing:normal;color:var(--studio-text);cursor:pointer;}
+    .zc-cfg-check input{width:1.2rem;height:1.2rem;flex:none;accent-color:var(--studio-accent);cursor:pointer;}
     .zc-color2{display:flex;align-items:stretch;gap:8px;}
     .zc-color2__pick{width:64px;height:40px;flex:none;border:1px solid var(--studio-border);border-radius:9px;background:none;cursor:pointer;padding:3px;}
     .zc-color2__pick::-webkit-color-swatch{border:none;border-radius:6px;} .zc-color2__pick::-webkit-color-swatch-wrapper{padding:0;}
@@ -88,7 +93,7 @@
                                     @if (!empty($f['hint']))<div style="display:inline-flex;align-items:center;gap:7px;margin-top:8px;font-size:0.76rem;font-weight:600;color:var(--studio-muted);background:var(--studio-surface-soft);border:1px dashed var(--studio-border);border-radius:9px;padding:6px 10px;">📐 Recommended: <b style="color:var(--studio-text);font-weight:800;">{{ $f['hint'] }}</b></div>@endif
                                 </div>
                             @elseif ($type === 'checkbox')
-                                <div class="zc-cfg-f"><label>&nbsp;</label><label style="display:inline-flex;align-items:center;gap:0.6rem;font-weight:700;cursor:pointer;padding-top:0.4rem;"><input type="checkbox" name="{{ $f['key'] }}" value="1" @checked(filter_var($val, FILTER_VALIDATE_BOOLEAN)) style="width:1.15rem;height:1.15rem;accent-color:var(--studio-accent);"> {{ $f['label'] }}</label></div>
+                                <div class="zc-cfg-f zc-cfg-f--checkbox"><label class="zc-cfg-check"><input type="checkbox" name="{{ $f['key'] }}" value="1" @checked(filter_var($val, FILTER_VALIDATE_BOOLEAN))> {{ $f['label'] }}</label></div>
                             @elseif ($type === 'datetime')
                                 <div class="zc-cfg-f"><label>{{ $f['label'] }}</label><input type="datetime-local" name="{{ $f['key'] }}" value="{{ $val }}" class="studio-form-control"></div>
                             @else

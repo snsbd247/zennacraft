@@ -32,8 +32,13 @@
     .zc-cfg-f label{display:block;font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--studio-muted);margin-bottom:.45rem;}
     .zc-cfg-f.full{grid-column:1/-1;}
     .zc-cfg-f .studio-form-control{width:100%;}
-    .zc-cfg-check{display:inline-flex;align-items:center;gap:.6rem;font-weight:700;font-size:.85rem;cursor:pointer;padding-top:.4rem;text-transform:none;letter-spacing:normal;color:var(--studio-text);}
-    .zc-cfg-check input{width:1.15rem;height:1.15rem;accent-color:var(--studio-accent);}
+    /* Higher specificity than ".zc-cfg-f label" above (which would otherwise
+       win the cascade on shared properties like text-transform/display and
+       leave the checkbox row looking like a stacked, all-caps field label
+       instead of one inline checkbox + its sentence-case text). */
+    .zc-cfg-f--checkbox{align-self:end;}
+    .zc-cfg-f label.zc-cfg-check{display:inline-flex;align-items:center;gap:.65rem;margin-bottom:0;font-size:.85rem;font-weight:700;text-transform:none;letter-spacing:normal;color:var(--studio-text);cursor:pointer;}
+    .zc-cfg-check input{width:1.2rem;height:1.2rem;flex:none;accent-color:var(--studio-accent);cursor:pointer;}
 
     .zc-cfg-secret{position:relative;}
     .zc-cfg-secret .studio-form-control{padding-right:2.5rem;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.02em;}
@@ -86,7 +91,7 @@
                         @foreach ($section['fields'] as $f)
                             @php $type = $f['type'] ?? 'text'; $val = $values[$f['key']] ?? ''; @endphp
                             @if ($type === 'checkbox')
-                                <div class="zc-cfg-f"><label>&nbsp;</label><label class="zc-cfg-check"><input type="checkbox" name="{{ $f['key'] }}" value="1" @checked(filter_var($val, FILTER_VALIDATE_BOOLEAN))> {{ $f['label'] }}</label></div>
+                                <div class="zc-cfg-f zc-cfg-f--checkbox"><label class="zc-cfg-check"><input type="checkbox" name="{{ $f['key'] }}" value="1" @checked(filter_var($val, FILTER_VALIDATE_BOOLEAN))> {{ $f['label'] }}</label></div>
                             @elseif ($type === 'textarea')
                                 <div class="zc-cfg-f full"><label>{{ $f['label'] }}</label><textarea name="{{ $f['key'] }}" rows="4" class="studio-form-control">{{ $val }}</textarea></div>
                             @elseif ($type === 'select')
