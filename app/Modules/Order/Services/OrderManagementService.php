@@ -15,6 +15,7 @@ use App\Modules\Product\Models\Product;
 use App\Modules\Product\Models\ProductVariant;
 use App\Modules\RTO\Services\CustomerRiskService;
 use App\Modules\Shared\Services\PhoneService;
+use App\Modules\Shared\Support\OperationalStanding;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -119,6 +120,8 @@ class OrderManagementService
 
     public function updateStatus(Order $order, string $status, ?string $note = null, ?string $rtoReason = null): Order
     {
+        OperationalStanding::assertActive();
+
         if (! in_array($status, $this->allowedStatuses(), true)) {
             throw ValidationException::withMessages([
                 'status' => 'The selected order status is invalid.',

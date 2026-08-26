@@ -2,296 +2,330 @@
 
 namespace App\Modules\License\Services;
 
-use App\Modules\Settings\Services\SettingService;
+use App\Modules\License\Models\LicenseState;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
 use Throwable;
 
 /**
- * License & Update CLIENT.
+ * License & Update CLIENT — talks to the central license server
+ * (config('license.server')) to activate this installation and verify it
+ * stays valid. Every response is checked against an RSA-2048/SHA-256
+ * signature before it's ever trusted or written to storage — without that,
+ * anyone with database access could set status='active' directly and
+ * bypass the whole system. See docs/license-verification.md for the wire
+ * contract this was built against.
  *
- * This is the thin half that lives inside the sold script (Zenna Craft, and any
- * future tool that drops this module in). It talks to your central License +
- * Update panel over a small HTTP API to activate the installation, validate it
- * periodically, and check for new versions.
- *
- * Design rules that keep a LIVE store safe:
- *  - Dormant by default: if config('license.server') is empty, nothing phones
- *    home and the app has full access (status "unlicensed" = developer mode).
- *  - Never hard-stops the storefront. An expired/invalid licence only shows a
- *    banner and blocks UPDATES; the store keeps selling.
- *  - Fault tolerant: if the panel is unreachable we keep the last good status
- *    for `grace_days`, so an outage or a network blip is invisible to shoppers.
- *
- * The panel API this expects (documented here so the panel implements the same
- * contract):
- *   POST {server}/api/v1/activate  {product,key,domain} -> {status,expires_at,message}
- *   POST {server}/api/v1/validate  {product,key,domain} -> {status,expires_at,latest_version,message}
- *   GET  {server}/api/v1/version   ?product&current&key&domain -> {latest_version,changelog,mandatory,...}
- * where status is one of: active | expired | invalid.
+ * This is a HARD gate (unlike a soft "nag banner" license check): once a
+ * blocking status is reached, LicenseGuard (app/Modules/Shared/Support)
+ * stops the rest of the app from functioning. See that class and its call
+ * sites for how enforcement is kept from being a single point of failure.
  */
 class LicenseService
 {
-    private const GROUP = 'license';
+    public const ALLOWED_STATUSES = ['active', 'grace'];
 
-    public function __construct(private SettingService $settings) {}
+    public function __construct() {}
 
-    // --- Configuration (read-only, from config/license.php) --------------
-
-    public function isConfigured(): bool
-    {
-        return $this->server() !== '';
-    }
+    // --- Configuration -----------------------------------------------------
 
     public function server(): string
     {
         return rtrim((string) config('license.server', ''), '/');
     }
 
-    public function product(): string
+    public function productSlug(): string
     {
-        return (string) config('license.product', 'app');
-    }
-
-    public function currentVersion(): string
-    {
-        return (string) config('license.version', '1.0.0');
-    }
-
-    public function graceDays(): int
-    {
-        return max(0, (int) config('license.grace_days', 7));
+        return (string) config('license.product_slug', '');
     }
 
     public function domain(): string
     {
-        return request()->getHost() ?: 'localhost';
+        return request()->getHost() ?: (string) parse_url(config('app.url', ''), PHP_URL_HOST);
     }
 
-    // --- Stored license key + preferences --------------------------------
-
-    public function key(): ?string
+    protected function publicKey(): string
     {
-        $key = $this->settings->getEncrypted(self::GROUP, 'key');
-
-        return $key ? (string) $key : null;
+        return (string) config('license.public_key_pem', '');
     }
 
-    public function autoUpdate(): bool
+    // --- Stored state --------------------------------------------------------
+
+    public function licenseKey(): ?string
     {
-        return filter_var($this->settings->get(self::GROUP, 'auto_update', false), FILTER_VALIDATE_BOOLEAN);
-    }
+        $encrypted = LicenseState::current()->license_key;
 
-    public function setAutoUpdate(bool $on): void
-    {
-        $this->settings->set(self::GROUP, 'auto_update', $on ? '1' : '0', 'boolean');
-    }
-
-    public function expiresAt(): ?Carbon
-    {
-        $v = $this->settings->get(self::GROUP, 'expires_at');
-
-        return $v ? Carbon::parse((string) $v) : null;
-    }
-
-    public function checkedAt(): ?Carbon
-    {
-        $v = $this->settings->get(self::GROUP, 'checked_at');
-
-        return $v ? Carbon::parse((string) $v) : null;
-    }
-
-    // --- The effective, human-facing state -------------------------------
-
-    /**
-     * The status the UI + any gate reads. It NEVER hard-stops the app:
-     *  - unlicensed : panel not set up OR no key entered -> full access (dev)
-     *  - active     : validated and not expired
-     *  - grace      : panel currently unreachable, but last check was good and
-     *                 still inside the grace window
-     *  - expired    : past expiry (updates blocked, banner shown; store runs)
-     *  - invalid    : panel rejected the key
-     */
-    public function effectiveStatus(): string
-    {
-        if (! $this->isConfigured() || ! $this->key()) {
-            return 'unlicensed';
-        }
-
-        $status = (string) $this->settings->get(self::GROUP, 'status', 'unknown');
-
-        if ($status === 'invalid') {
-            return 'invalid';
-        }
-
-        $expiresAt = $this->expiresAt();
-        if ($expiresAt && $expiresAt->isPast()) {
-            return 'expired';
-        }
-
-        if ($status === 'active') {
-            return 'active';
-        }
-
-        // Status unknown / last refresh was unreachable: honour the grace window
-        // measured from the last successful check.
-        $checkedAt = $this->checkedAt();
-        if ($checkedAt && $checkedAt->copy()->addDays($this->graceDays())->isFuture()) {
-            return 'grace';
-        }
-
-        return 'expired';
-    }
-
-    public function state(): array
-    {
-        return [
-            'configured' => $this->isConfigured(),
-            'server' => $this->server(),
-            'product' => $this->product(),
-            'domain' => $this->domain(),
-            'has_key' => (bool) $this->key(),
-            'key_masked' => $this->maskKey(),
-            'status' => $this->effectiveStatus(),
-            'expires_at' => optional($this->expiresAt())->toDateString(),
-            'checked_at' => optional($this->checkedAt())->toDateTimeString(),
-            'current_version' => $this->currentVersion(),
-            'latest_version' => (string) $this->settings->get(self::GROUP, 'latest_version', $this->currentVersion()),
-            'auto_update' => $this->autoUpdate(),
-            'message' => (string) $this->settings->get(self::GROUP, 'message', ''),
-            'grace_days' => $this->graceDays(),
-        ];
-    }
-
-    // --- Talking to the panel --------------------------------------------
-
-    public function activate(string $key): array
-    {
-        if (! $this->isConfigured()) {
-            return ['ok' => false, 'message' => 'License server is not configured yet. Set LICENSE_SERVER_URL first.'];
+        if (! $encrypted) {
+            return null;
         }
 
         try {
-            $res = Http::timeout(12)->acceptJson()->post($this->server().'/api/v1/activate', [
-                'product' => $this->product(),
-                'key' => $key,
-                'domain' => $this->domain(),
-            ]);
+            return Crypt::decryptString($encrypted);
         } catch (Throwable) {
-            return ['ok' => false, 'message' => 'Could not reach the license server. Please try again.'];
-        }
-
-        $data = is_array($res->json()) ? $res->json() : [];
-
-        if ($res->successful() && ($data['status'] ?? '') === 'active') {
-            $this->settings->setEncrypted(self::GROUP, 'key', $key);
-            $this->store($data);
-
-            return ['ok' => true, 'message' => $data['message'] ?? 'License activated.'];
-        }
-
-        return ['ok' => false, 'message' => $data['message'] ?? 'Activation failed. Check the key and try again.'];
-    }
-
-    public function refresh(): array
-    {
-        if (! $this->isConfigured() || ! $this->key()) {
-            return ['ok' => false, 'message' => 'No license to validate.'];
-        }
-
-        try {
-            $res = Http::timeout(10)->acceptJson()->post($this->server().'/api/v1/validate', [
-                'product' => $this->product(),
-                'key' => $this->key(),
-                'domain' => $this->domain(),
-            ]);
-        } catch (Throwable) {
-            // Unreachable -> keep the cached state; the grace window covers it.
-            return ['ok' => false, 'message' => 'License server unreachable — using last known status.'];
-        }
-
-        if (! $res->successful()) {
-            return ['ok' => false, 'message' => 'License server error — using last known status.'];
-        }
-
-        $this->store(is_array($res->json()) ? $res->json() : []);
-
-        return ['ok' => true, 'message' => 'License refreshed.'];
-    }
-
-    public function checkUpdate(): array
-    {
-        $current = $this->currentVersion();
-
-        if (! $this->isConfigured()) {
-            return ['ok' => false, 'current' => $current, 'latest' => $current, 'has_update' => false, 'changelog' => '', 'mandatory' => false, 'message' => 'License server is not configured yet.'];
-        }
-
-        try {
-            $res = Http::timeout(10)->acceptJson()->get($this->server().'/api/v1/version', [
-                'product' => $this->product(),
-                'current' => $current,
-                'key' => $this->key(),
-                'domain' => $this->domain(),
-            ]);
-        } catch (Throwable) {
-            return ['ok' => false, 'current' => $current, 'latest' => $current, 'has_update' => false, 'changelog' => '', 'mandatory' => false, 'message' => 'Could not reach the update server.'];
-        }
-
-        $data = is_array($res->json()) ? $res->json() : [];
-        $latest = (string) ($data['latest_version'] ?? $current);
-
-        if ($res->successful()) {
-            $this->settings->set(self::GROUP, 'latest_version', $latest, 'string');
-        }
-
-        return [
-            'ok' => $res->successful(),
-            'current' => $current,
-            'latest' => $latest,
-            'has_update' => version_compare($latest, $current, '>'),
-            'changelog' => (string) ($data['changelog'] ?? ''),
-            'mandatory' => (bool) ($data['mandatory'] ?? false),
-            'message' => (string) ($data['message'] ?? ''),
-        ];
-    }
-
-    public function deactivate(): void
-    {
-        foreach (['key', 'status', 'expires_at', 'checked_at', 'latest_version', 'message'] as $k) {
-            $this->settings->remove(self::GROUP, $k);
+            return null;
         }
     }
 
-    // --- internals -------------------------------------------------------
-
-    /** Persist the fields the panel returned + stamp the check time. */
-    private function store(array $data): void
+    public function maskedKey(): ?string
     {
-        if (isset($data['status'])) {
-            $this->settings->set(self::GROUP, 'status', (string) $data['status'], 'string');
-        }
-        if (array_key_exists('expires_at', $data)) {
-            $this->settings->set(self::GROUP, 'expires_at', $data['expires_at'] ? (string) $data['expires_at'] : '', 'string');
-        }
-        if (isset($data['latest_version'])) {
-            $this->settings->set(self::GROUP, 'latest_version', (string) $data['latest_version'], 'string');
-        }
-        $this->settings->set(self::GROUP, 'message', (string) ($data['message'] ?? ''), 'string');
-        $this->settings->set(self::GROUP, 'checked_at', now()->toDateTimeString(), 'string');
-    }
+        $key = $this->licenseKey();
 
-    private function maskKey(): ?string
-    {
-        $key = $this->key();
         if (! $key) {
             return null;
         }
 
         $len = strlen($key);
 
-        return $len <= 4
-            ? str_repeat('•', $len)
-            : str_repeat('•', max(4, $len - 4)).substr($key, -4);
+        return $len <= 4 ? str_repeat('•', $len) : str_repeat('•', max(4, $len - 4)).substr($key, -4);
+    }
+
+    public function daysUntilExpiry(): ?int
+    {
+        $expiresAt = LicenseState::current()->expires_at;
+
+        if (! $expiresAt) {
+            return null;
+        }
+
+        return (int) now()->startOfDay()->diffInDays($expiresAt->copy()->startOfDay(), false);
+    }
+
+    // --- The effective, enforced state --------------------------------------
+
+    /**
+     * The single entry point everything else (middleware, LicenseGuard,
+     * the /license/status endpoint) reads. Triggers a fresh verify() when
+     * the cache is stale; on network/signature failure it falls back to the
+     * last signature-verified status for up to `license.offline_trust_days`
+     * so a brief outage never blocks a live store — past that window it
+     * fails closed (blocked), not open.
+     *
+     * @return array{status: string, blocked: bool, message: string, expires_at: ?string, has_key: bool}
+     */
+    public function getEffectiveStatus(): array
+    {
+        // The hundreds of unrelated feature tests across the app should not
+        // need to know licensing exists. Only LicenseVerificationTest (which
+        // tests this gate itself) opts back into real enforcement.
+        if (app()->runningUnitTests() && ! app()->bound('license.enforce_in_tests')) {
+            return $this->result('active', false, 'License enforcement bypassed for automated tests.');
+        }
+
+        $state = LicenseState::current();
+
+        if (! $state->license_key) {
+            return $this->result('unactivated', true, 'No license key has been activated on this installation yet.');
+        }
+
+        $staleAfter = (int) config('license.verify_cache_hours', 6);
+        $isStale = ! $state->last_checked_at || $state->last_checked_at->lt(now()->subHours($staleAfter));
+
+        // last_checked_at only ever advances on a SUCCESSFUL check (see
+        // markCheckFailed) so the offline-trust window below means what it
+        // says. That also means a prolonged outage would otherwise get
+        // retried on every single request; this short cache stops that
+        // without touching the timestamp that matters for trust.
+        $recentlyFailed = Cache::get('license:last_attempt_at') > now()->subMinutes(5)->timestamp;
+
+        if ($isStale && ! $recentlyFailed) {
+            $this->verify();
+            $state = LicenseState::current();
+        }
+
+        return $this->stateToResult($state);
+    }
+
+    protected function stateToResult(LicenseState $state): array
+    {
+        if (! $state->license_key) {
+            return $this->result('unactivated', true, 'No license key has been activated on this installation yet.');
+        }
+
+        // The most recent check itself failed (network/signature) — trust
+        // the last GOOD status for a limited offline window instead of
+        // immediately blocking on a transient failure.
+        if (! $state->last_check_ok) {
+            $trustUntil = $state->last_checked_at?->copy()->addDays((int) config('license.offline_trust_days', 5));
+
+            if ($state->status && $trustUntil && $trustUntil->isFuture() && in_array($state->status, self::ALLOWED_STATUSES, true)) {
+                return $this->result($state->status, false, $state->message ?: 'Running on a cached license check — the license server was unreachable at the last attempt.', $state->expires_at);
+            }
+
+            return $this->result('unreachable', true, $state->message ?: 'Could not verify the license and no recent valid check is on record.', $state->expires_at);
+        }
+
+        $blocked = ! in_array($state->status, self::ALLOWED_STATUSES, true);
+
+        return $this->result((string) $state->status, $blocked, (string) $state->message, $state->expires_at);
+    }
+
+    protected function result(string $status, bool $blocked, string $message, ?Carbon $expiresAt = null): array
+    {
+        return [
+            'status' => $status,
+            'blocked' => $blocked,
+            'message' => $message,
+            'expires_at' => $expiresAt?->toIso8601String(),
+            'has_key' => (bool) LicenseState::current()->license_key,
+        ];
+    }
+
+    // --- Talking to the license server --------------------------------------
+
+    /** @return array{ok: bool, message: string} */
+    public function activate(string $key): array
+    {
+        $key = trim($key);
+
+        if ($key === '') {
+            return ['ok' => false, 'message' => 'Enter a license key.'];
+        }
+
+        try {
+            $response = Http::timeout(12)->acceptJson()->post($this->server().'/license/activate', [
+                'license_key' => $key,
+                'domain' => $this->domain(),
+                'product_slug' => $this->productSlug(),
+            ]);
+        } catch (Throwable $exception) {
+            return ['ok' => false, 'message' => 'Could not reach the license server: '.$exception->getMessage()];
+        }
+
+        $data = is_array($response->json()) ? $response->json() : [];
+        $status = (string) ($data['status'] ?? '');
+
+        if (! $response->successful() || ! in_array($status, ['activated', 'already_active'], true)) {
+            return ['ok' => false, 'message' => (string) ($data['message'] ?? 'Activation failed — check the key and try again.')];
+        }
+
+        if (! $this->verifySignature($data)) {
+            return ['ok' => false, 'message' => 'The license server\'s response could not be verified (signature mismatch) — activation was not saved.'];
+        }
+
+        $state = LicenseState::current();
+        $state->license_key = Crypt::encryptString($key);
+        $state->status = 'active';
+        $state->expires_at = $this->parseDate($data['expires_at'] ?? null);
+        $state->message = (string) ($data['message'] ?? '');
+        $state->signature = (string) ($data['signature'] ?? '');
+        $state->last_checked_at = now();
+        $state->last_check_ok = true;
+        $state->save();
+
+        return ['ok' => true, 'message' => (string) ($data['message'] ?? 'License activated.')];
+    }
+
+    /**
+     * @return array{ok: bool, message: string}
+     */
+    public function verify(bool $force = false): array
+    {
+        $state = LicenseState::current();
+        $key = $this->licenseKey();
+
+        if (! $key) {
+            return ['ok' => false, 'message' => 'No license key to verify.'];
+        }
+
+        $staleAfter = (int) config('license.verify_cache_hours', 6);
+        if (! $force && $state->last_checked_at && $state->last_checked_at->gt(now()->subHours($staleAfter))) {
+            return ['ok' => true, 'message' => 'Using the cached license status.'];
+        }
+
+        try {
+            $response = Http::timeout(10)->acceptJson()->post($this->server().'/license/verify', [
+                'license_key' => $key,
+                'domain' => $this->domain(),
+            ]);
+        } catch (Throwable $exception) {
+            $this->markCheckFailed($exception->getMessage());
+
+            return ['ok' => false, 'message' => 'License server unreachable — using last known status.'];
+        }
+
+        $data = is_array($response->json()) ? $response->json() : [];
+        $status = (string) ($data['status'] ?? '');
+
+        $recognised = ['active', 'grace', 'expired', 'suspended', 'revoked', 'denied'];
+        if (! $status || ! in_array($status, $recognised, true)) {
+            $this->markCheckFailed('Unrecognised response from license server.');
+
+            return ['ok' => false, 'message' => 'License server returned an unexpected response — using last known status.'];
+        }
+
+        if (! $this->verifySignature($data)) {
+            $this->markCheckFailed('Signature verification failed.');
+
+            return ['ok' => false, 'message' => 'The license server\'s response could not be verified — using last known status.'];
+        }
+
+        $state->status = $status;
+        $state->expires_at = $this->parseDate($data['expires_at'] ?? null);
+        $state->message = (string) ($data['message'] ?? '');
+        $state->signature = (string) ($data['signature'] ?? '');
+        $state->last_checked_at = now();
+        $state->last_check_ok = true;
+        $state->save();
+
+        return ['ok' => true, 'message' => (string) ($data['message'] ?? 'License status refreshed.')];
+    }
+
+    protected function markCheckFailed(string $reason): void
+    {
+        // Deliberately does NOT touch last_checked_at — it must keep
+        // reflecting the last SUCCESSFUL check, since the offline-trust
+        // window in stateToResult() is measured from it. Advancing it on
+        // every failed attempt would let a prolonged outage silently
+        // extend the trust window forever instead of expiring it.
+        $state = LicenseState::current();
+        $state->last_check_ok = false;
+        $state->message = $reason;
+        $state->save();
+
+        Cache::put('license:last_attempt_at', now()->timestamp, now()->addMinutes(5));
+    }
+
+    /**
+     * "{status}|{license_key}|{domain}|{expires_at}" — a plain string, not a
+     * re-serialization of the JSON body (field order/whitespace in JSON
+     * isn't stable enough to sign against). Missing fields become "".
+     */
+    protected function verifySignature(array $data): bool
+    {
+        $publicKey = $this->publicKey();
+        $signature = (string) ($data['signature'] ?? '');
+
+        if ($publicKey === '' || $signature === '') {
+            return false;
+        }
+
+        $canonical = implode('|', [
+            (string) ($data['status'] ?? ''),
+            (string) ($data['license_key'] ?? ''),
+            (string) ($data['domain'] ?? ''),
+            (string) ($data['expires_at'] ?? ''),
+        ]);
+
+        $decoded = base64_decode($signature, true);
+        if ($decoded === false) {
+            return false;
+        }
+
+        return openssl_verify($canonical, $decoded, $publicKey, OPENSSL_ALGO_SHA256) === 1;
+    }
+
+    protected function parseDate(mixed $value): ?Carbon
+    {
+        if (! $value) {
+            return null;
+        }
+
+        try {
+            return Carbon::parse((string) $value);
+        } catch (Throwable) {
+            return null;
+        }
     }
 }

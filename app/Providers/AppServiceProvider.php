@@ -112,6 +112,12 @@ class AppServiceProvider extends ServiceProvider
             ];
         });
 
+        RateLimiter::for('license-recheck', function (Request $request) use ($rateKey) {
+            $staffId = $request->user('staff')?->getAuthIdentifier();
+
+            return Limit::perSecond(1, 30)->by($rateKey('license-recheck', $staffId ?: $request->ip()));
+        });
+
         $this->shareStorefrontLayoutData();
     }
 

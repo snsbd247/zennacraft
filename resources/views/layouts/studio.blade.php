@@ -454,6 +454,22 @@
         $yieldedSubtitle = trim($__env->yieldContent('subtitle'));
         $studioPageTitle = $yieldedTitle !== '' ? $yieldedTitle : 'Studio';
         $studioPageSubtitle = $yieldedSubtitle !== '' ? $yieldedSubtitle : 'Zenna Craft admin workspace';
+
+        // Display-only — never lets a license-check problem break page
+        // rendering. Enforcement itself happens in EnsureLicenseIsValid /
+        // AdminAccess, not here.
+        $licenseBanner = null;
+        if ($staffUser) {
+            try {
+                $licenseSvc = app(\App\Modules\License\Services\LicenseService::class);
+                $licenseStatus = $licenseSvc->getEffectiveStatus();
+                $licenseDaysLeft = $licenseSvc->daysUntilExpiry();
+                $licenseBanner = $licenseStatus['status'] === 'grace' ? $licenseStatus : null;
+                $licenseShowExpiryModal = $licenseStatus['status'] === 'active' && $licenseDaysLeft !== null && $licenseDaysLeft <= 3;
+            } catch (\Throwable $e) {
+                $licenseShowExpiryModal = false;
+            }
+        }
     @endphp
 
     <div class="studio-shell studio-reference-shell">
@@ -583,11 +599,42 @@
                 </div>
             </header>
 
+            @if ($licenseBanner)
+                <div style="background:#fff5e0;color:#8a6d1f;border-bottom:1px solid #f3d9a0;padding:.65rem 1.25rem;font-size:.85rem;font-weight:600;text-align:center;">
+                    Your license is in its grace period — renew soon to avoid losing access.
+                    <a href="{{ route('license.verification') }}" style="text-decoration:underline;font-weight:800;">Renew now</a>
+                </div>
+            @endif
+
             <main id="main-content" class="studio-reference-main mx-auto max-w-none px-4 py-6 sm:px-6 lg:px-8">
                 @yield('content')
             </main>
         </div>
     </div>
+
+    @if (! empty($licenseShowExpiryModal) && $licenseShowExpiryModal)
+        <div id="zc-lic-expiry-modal" style="position:fixed;inset:0;z-index:1300;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(15,23,42,.55);">
+            <div style="background:#fff;border-radius:18px;max-width:420px;width:100%;padding:1.75rem;box-shadow:0 40px 90px -30px rgba(0,0,0,.5);">
+                <div style="font-size:1.05rem;font-weight:800;color:#101828;margin-bottom:.5rem;">Your license expires in {{ $licenseDaysLeft }} day{{ $licenseDaysLeft === 1 ? '' : 's' }}</div>
+                <p style="font-size:.88rem;color:#5b6675;line-height:1.55;margin:0 0 1.25rem;">Renew now to avoid any interruption once it lapses.</p>
+                <div style="display:flex;gap:.6rem;justify-content:flex-end;">
+                    <button type="button" onclick="document.getElementById('zc-lic-expiry-modal').remove();" class="studio-command-button">Dismiss</button>
+                    <a href="{{ route('license.verification') }}" class="studio-command-button studio-command-button--primary">Renew</a>
+                </div>
+            </div>
+        </div>
+        <script>
+            (function () {
+                try {
+                    if (sessionStorage.getItem('zc_lic_expiry_seen')) {
+                        document.getElementById('zc-lic-expiry-modal').remove();
+                    } else {
+                        sessionStorage.setItem('zc_lic_expiry_seen', '1');
+                    }
+                } catch (e) {}
+            })();
+        </script>
+    @endif
 
     {{-- AJAX feedback: the data-ajax-form handler writes here on every
          in-place (no-reload) action. --}}

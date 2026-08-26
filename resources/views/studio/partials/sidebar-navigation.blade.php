@@ -187,7 +187,7 @@
                 ['label' => 'Sub City', 'route' => 'subcities.index', 'pattern' => 'subcities.*'],
             ],
         ],
-        ['type' => 'link', 'label' => 'License & Updates', 'route' => 'license.index', 'pattern' => 'license.*', 'icon' => 'license', 'permission' => 'settings.view'],
+        ['type' => 'link', 'label' => 'License', 'route' => 'license.verification', 'pattern' => 'license.*', 'icon' => 'license'],
     ];
 
     $studioNavIcon = function (string $name): string {

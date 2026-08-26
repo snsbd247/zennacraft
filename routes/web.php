@@ -83,7 +83,7 @@ Route::prefix($adminPath)->group(function () {
         Route::post('login', [AdminLoginController::class, 'login'])->middleware('throttle:staff-login')->name('staff.login.submit');
     });
 
-    Route::middleware([AdminAccess::class])->group(function () {
+    Route::middleware([AdminAccess::class, \App\Http\Middleware\EnsureLicenseIsValid::class])->group(function () {
         Route::get('/', [DashboardController::class, 'index'])->name('studio.dashboard');
 
         Route::post('logout', [AdminLoginController::class, 'logout'])->name('staff.logout');
@@ -503,17 +503,16 @@ Route::prefix($adminPath)->group(function () {
             Route::post('courier/shipments/{shipment}/sync-status', [CourierController::class, 'syncStatus'])->name('courier.shipments.sync-status');
         });
 
-        // --- License & Updates (client for the central License/Update panel;
-        // dormant until LICENSE_SERVER_URL is set — nothing phones home) ---
+        // --- License verification — deliberately not permission-gated (any
+        // logged-in staff member must be able to fix a blocked install, not
+        // just whoever has settings.update) and reachable even while the
+        // license is blocked; see EnsureLicenseIsValid's self-exemption and
+        // AdminAccess's route-name check for how that's guaranteed. ---
         $LIC = \App\Modules\License\Http\Controllers\LicenseController::class;
-        Route::middleware(['permission:settings.view'])->get('license', [$LIC, 'index'])->name('license.index');
-        Route::middleware(['permission:settings.update'])->group(function () use ($LIC) {
-            Route::post('license/activate', [$LIC, 'activate'])->name('license.activate');
-            Route::post('license/refresh', [$LIC, 'refresh'])->name('license.refresh');
-            Route::post('license/deactivate', [$LIC, 'deactivate'])->name('license.deactivate');
-            Route::get('license/check-update', [$LIC, 'checkUpdate'])->name('license.check-update');
-            Route::post('license/auto-update', [$LIC, 'autoUpdate'])->name('license.auto-update');
-        });
+        Route::get('license-verification', [$LIC, 'verification'])->name('license.verification');
+        Route::get('license/status', [$LIC, 'status'])->name('license.status');
+        Route::post('license/activate', [$LIC, 'activate'])->name('license.activate');
+        Route::post('license/recheck', [$LIC, 'recheck'])->middleware('throttle:license-recheck')->name('license.recheck');
     });
 });
 

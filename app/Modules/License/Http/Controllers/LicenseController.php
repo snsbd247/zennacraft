@@ -4,59 +4,58 @@ namespace App\Modules\License\Http\Controllers;
 
 use App\Modules\License\Services\LicenseService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\View\View;
 
+/**
+ * Any authenticated staff member can reach these — not gated behind a
+ * settings permission, and (see routes/web.php) registered outside
+ * EnsureLicenseIsValid — a blocked installation must still let whoever is
+ * logged in fix it, not just an admin with the right permission.
+ */
 class LicenseController extends Controller
 {
     public function __construct(private LicenseService $license) {}
 
-    public function index(): View
+    public function verification(): View
     {
-        // Best-effort daily re-validation when an admin opens the page. It never
-        // blocks (short timeout, failures keep the cached status via the grace
-        // window), and it's a no-op when no panel is configured / no key is set.
-        $checkedAt = $this->license->checkedAt();
-        if ($this->license->key() && (! $checkedAt || $checkedAt->copy()->addDay()->isPast())) {
-            $this->license->refresh();
-        }
-
-        return view('studio.license.index', ['state' => $this->license->state()]);
+        return view('studio.license-verification', $this->pageData());
     }
 
-    public function activate(Request $request): RedirectResponse
+    public function status(): JsonResponse
     {
-        $data = $request->validate(['key' => ['required', 'string', 'max:191']]);
-        $result = $this->license->activate(trim($data['key']));
-
-        return back()->with($result['ok'] ? 'success' : 'error', $result['message']);
+        return response()->json($this->pageData());
     }
 
-    public function refresh(): RedirectResponse
+    public function activate(Request $request): JsonResponse
     {
-        $result = $this->license->refresh();
+        $validated = $request->validate(['license_key' => ['required', 'string', 'max:191']]);
 
-        return back()->with($result['ok'] ? 'success' : 'error', $result['message']);
+        $result = $this->license->activate($validated['license_key']);
+
+        return response()->json(array_merge($result, $this->pageData()), $result['ok'] ? 200 : 422);
     }
 
-    public function deactivate(): RedirectResponse
+    public function recheck(): JsonResponse
     {
-        $this->license->deactivate();
+        $result = $this->license->verify(force: true);
 
-        return back()->with('success', 'License removed from this installation.');
+        return response()->json(array_merge($result, $this->pageData()));
     }
 
-    public function checkUpdate(): JsonResponse
+    private function pageData(): array
     {
-        return response()->json($this->license->checkUpdate());
-    }
+        $status = $this->license->getEffectiveStatus();
 
-    public function autoUpdate(Request $request): RedirectResponse
-    {
-        $this->license->setAutoUpdate($request->boolean('auto_update'));
-
-        return back()->with('success', 'Auto-update preference saved.');
+        return [
+            'status' => $status['status'],
+            'blocked' => $status['blocked'],
+            'message' => $status['message'],
+            'expires_at' => $status['expires_at'],
+            'has_key' => $status['has_key'],
+            'masked_key' => $this->license->maskedKey(),
+            'days_until_expiry' => $this->license->daysUntilExpiry(),
+        ];
     }
 }

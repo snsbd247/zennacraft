@@ -10,6 +10,7 @@ use App\Modules\Finance\Services\FinanceService;
 use App\Modules\Order\Models\Order;
 use App\Modules\Order\Services\OrderManagementService;
 use App\Modules\RTO\Services\OrderRiskService;
+use App\Modules\Shared\Support\OperationalStanding;
 use App\Modules\Tracking\Services\TrackingService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -138,6 +139,8 @@ class CourierService
 
     public function assignShipment(Order $order, array $data): Shipment
     {
+        OperationalStanding::assertActive();
+
         if ($order->risk_hold_status === 'active') {
             throw ValidationException::withMessages([
                 'courier_provider_id' => 'This order has an active risk hold and cannot be assigned to a courier until the hold is cleared from the RTO risk holds screen.',
