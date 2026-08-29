@@ -36,8 +36,8 @@
     /* product picker */
     .zc-pp{position:relative;}
     .zc-pp__box{position:relative;}
-    .zc-pp__box svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--studio-muted);pointer-events:none;}
-    .zc-pp__box input{padding-left:2.5rem;}
+    .zc-pp__box svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--studio-muted);pointer-events:none;z-index:1;}
+    .zc-pp__box input.studio-form-control{padding-left:2.6rem !important;}
     .zc-pp__results{position:absolute;z-index:30;left:0;right:0;top:calc(100% + 6px);background:var(--studio-surface);border:1px solid var(--studio-border);border-radius:12px;box-shadow:0 24px 50px -22px rgba(0,0,0,.45);max-height:320px;overflow-y:auto;display:none;}
     .zc-pp__results.show{display:block;}
     .zc-pp__item{display:flex;align-items:center;gap:12px;padding:0.6rem 0.8rem;cursor:pointer;border-bottom:1px solid var(--studio-border);}
@@ -57,8 +57,10 @@
     .zc-sp-chip .ph{width:30px;height:30px;border-radius:7px;background:var(--studio-border);display:grid;place-items:center;font-size:0.55rem;color:var(--studio-muted);}
     .zc-sp-x{border:none;background:transparent;color:var(--studio-muted);cursor:pointer;font-size:1.1rem;line-height:1;padding:0 2px;}
     .zc-sp-x:hover{color:#c0392b;}
-    /* sticky publish bar */
-    .zc-lf-bar{position:sticky;bottom:-1px;margin:1.6rem -2rem -1.75rem;padding:1rem 2rem;background:color-mix(in srgb,var(--studio-surface) 88%,transparent);backdrop-filter:blur(8px);border-top:1px solid var(--studio-border);display:flex;justify-content:flex-end;gap:0.8rem;border-radius:0 0 var(--radius-lg,16px) var(--radius-lg,16px);}
+    /* sticky publish bar — fully opaque (not translucent+blur) so wherever it
+       ends up pinned mid-scroll, it cleanly covers the content behind it
+       instead of letting section headers bleed through half-legible. */
+    .zc-lf-bar{position:sticky;bottom:-1px;z-index:5;margin:1.6rem -2rem -1.75rem;padding:1rem 2rem;background:var(--studio-surface);border-top:1px solid var(--studio-border);box-shadow:0 -8px 20px -14px rgba(16,24,40,0.25);display:flex;justify-content:flex-end;gap:0.8rem;border-radius:0 0 var(--radius-lg,16px) var(--radius-lg,16px);}
     .zc-lf-gallery{display:flex;flex-wrap:wrap;gap:8px;margin-top:9px;}
     .zc-lf-gallery img{width:64px;height:64px;object-fit:cover;border-radius:9px;border:1px solid var(--studio-border);}
     .zc-lf-check2{display:inline-flex;align-items:center;gap:0.6rem;font-weight:600;font-size:0.85rem;cursor:pointer;}
