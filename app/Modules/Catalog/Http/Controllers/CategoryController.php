@@ -59,8 +59,15 @@ class CategoryController extends Controller
         return redirect()->route('categories.'.$level.'.index')->with('success', $this->meta($level)['singular'].' created.');
     }
 
-    public function edit(string $level, Category $category): View
+    public function edit(Request $request, Category $category): View
     {
+        // $level arrives via Route::defaults(), not a captured URI segment —
+        // Laravel appends default-supplied params *after* bound-model params
+        // when building the positional dispatch array, which swaps the two
+        // if $level is typed directly into the method signature. Pulling it
+        // from the route explicitly sidesteps that entirely.
+        $level = (string) $request->route('level');
+
         return view('studio.categories.form', array_merge($this->meta($level), [
             'level' => $level, 'category' => $category->load('image'),
             'parents' => $this->parentOptions($level),
@@ -68,8 +75,9 @@ class CategoryController extends Controller
         ]));
     }
 
-    public function update(Request $request, string $level, Category $category): RedirectResponse
+    public function update(Request $request, Category $category): RedirectResponse
     {
+        $level = (string) $request->route('level');
         $data = $this->validated($request, $level);
         $data['parent_id'] = $this->resolveParent($request, $level);
         if ($data['name'] !== $category->name) {
