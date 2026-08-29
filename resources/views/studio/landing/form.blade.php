@@ -63,6 +63,10 @@
     .zc-lf-gallery img{width:64px;height:64px;object-fit:cover;border-radius:9px;border:1px solid var(--studio-border);}
     .zc-lf-check2{display:inline-flex;align-items:center;gap:0.6rem;font-weight:600;font-size:0.85rem;cursor:pointer;}
     .zc-lf-check2 input{width:1.1rem;height:1.1rem;accent-color:var(--studio-accent);}
+    /* Contact buttons row (phone + WhatsApp side by side) — was referenced
+       with no rule defined, so the two inputs just stacked with no gap. */
+    .zc-lf-2{display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;}
+    @media(max-width:640px){.zc-lf-2{grid-template-columns:1fr;}}
 </style>@endpush
 @section('content')
 <div class="space-y-4">
