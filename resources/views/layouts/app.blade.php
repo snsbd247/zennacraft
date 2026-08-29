@@ -27,6 +27,7 @@
         'instagram' => $themeValue('social_instagram', $themeValue('instagram_url')),
         'youtube' => $themeValue('social_youtube', $themeValue('youtube_url')),
         'whatsapp' => $themeValue('social_whatsapp', $themeValue('contact_whatsapp')),
+        'imo' => $themeValue('social_imo'),
     ]);
     $contactPhone = $themeValue('contact_phone');
     $contactEmail = $themeValue('contact_email');
@@ -49,6 +50,16 @@
             $whatsappLink .= '?text='.rawurlencode($whatsappMsg);
         }
     }
+
+    // IMO click-to-chat (number set in Studio → Website Setup → Footer →
+    // Social links). Unlike WhatsApp, IMO has no official web click-to-chat
+    // link — this is a best-effort app deep link that only opens anything
+    // on a device with the IMO app installed; it's a silent no-op otherwise.
+    $imoDigits = preg_replace('/\D/', '', (string) ($socialLinks['imo'] ?? ''));
+    if ($imoDigits !== '' && str_starts_with($imoDigits, '0')) {
+        $imoDigits = '88'.$imoDigits;
+    }
+    $imoLink = strlen($imoDigits) >= 10 ? 'imo://chat?phone='.$imoDigits : null;
 
     // Anti-copy / content protection (Studio → Setting & Configuration →
     // Content Protection). A deterrent for casual copying — it can't stop a
@@ -328,14 +339,15 @@
                 @if ($contactEmail)<span style="display:flex;gap:8px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>{{ $contactEmail }}</span>@endif
             </div>
             @php
-                // Real per-network icons — no more generic dots. WhatsApp is
-                // skipped here because it has its own floating/bottom-nav button.
+                // Real per-network icons — no more generic dots. WhatsApp and
+                // IMO are skipped here because they have their own
+                // floating/bottom-nav buttons.
                 $socialIcons = [
                     'facebook' => '<path d="M14 9h3l.5-3H14V4.5c0-.9.3-1.5 1.6-1.5H17V.3C16.6.2 15.6 0 14.5 0 12.1 0 10.5 1.5 10.5 4.2V6H8v3h2.5v9H14z"/>',
                     'instagram' => '<rect x="3" y="3" width="18" height="18" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.2" cy="6.8" r="1.3"/>',
                     'youtube' => '<path d="M23 12s0-3.5-.45-5.17a2.7 2.7 0 0 0-1.9-1.9C18.98 4.5 12 4.5 12 4.5s-6.98 0-8.65.43a2.7 2.7 0 0 0-1.9 1.9C1 8.5 1 12 1 12s0 3.5.45 5.17a2.7 2.7 0 0 0 1.9 1.9c1.67.43 8.65.43 8.65.43s6.98 0 8.65-.43a2.7 2.7 0 0 0 1.9-1.9C23 15.5 23 12 23 12ZM9.75 15.02V8.98L15.5 12Z"/>',
                 ];
-                $footerSocials = collect($socialLinks)->except('whatsapp')->filter();
+                $footerSocials = collect($socialLinks)->except(['whatsapp', 'imo'])->filter();
             @endphp
             @if ($footerSocials->isNotEmpty())
                 <div class="zc-footer__soc">
@@ -385,18 +397,29 @@
     </div>
 </footer>
 
-{{-- Floating WhatsApp contact button (bottom-left). Hidden on mobile, where
-     the bottom nav carries WhatsApp instead. --}}
+{{-- Floating WhatsApp / IMO contact buttons (bottom-left). Hidden on mobile,
+     where the bottom nav carries them instead. --}}
 @if ($whatsappLink)
 <a href="{{ $whatsappLink }}" target="_blank" rel="noopener" class="zc-wafab zc-no-print" aria-label="Chat with us on WhatsApp">
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.5 15.3L2 22l4.8-1.5A10 10 0 1 0 12 2Zm0 18a8 8 0 0 1-4.1-1.1l-.3-.2-2.8.9.9-2.8-.2-.3A8 8 0 1 1 12 20Zm4.4-6c-.2-.1-1.4-.7-1.6-.8s-.4-.1-.5.1-.6.8-.8 1-.3.2-.5 0a6.5 6.5 0 0 1-1.9-1.2 7.3 7.3 0 0 1-1.4-1.7c-.1-.2 0-.4.1-.5l.4-.4.2-.4v-.4l-.8-1.8c-.2-.5-.4-.4-.5-.4h-.5a1 1 0 0 0-.7.3A2.8 2.8 0 0 0 5.9 10a5 5 0 0 0 1 2.6 11 11 0 0 0 4.2 3.7c2 .8 2 .5 2.4.5a2.5 2.5 0 0 0 1.6-1.1 2 2 0 0 0 .1-1.1c0-.1-.2-.2-.4-.3Z"/></svg>
     <span class="zc-wafab__label">WhatsApp</span>
 </a>
 @endif
+@if ($imoLink)
+<a href="{{ $imoLink }}" class="zc-imofab zc-no-print" @class(['zc-imofab--stacked' => $whatsappLink]) aria-label="Chat with us on IMO">
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path fill="#fff" d="M7 9.2c0-.9.7-1.6 1.6-1.6s1.6.7 1.6 1.6v5.6a1.6 1.6 0 1 1-3.2 0Zm5.4 0c0-.9.7-1.6 1.6-1.6s1.6.7 1.6 1.6v5.6a1.6 1.6 0 1 1-3.2 0Z"/></svg>
+    <span class="zc-wafab__label">IMO</span>
+</a>
+@endif
 
 {{-- Mobile bottom nav --}}
+@php
+    // Home, Cart, Account are always present; Track/WhatsApp/IMO/Search are
+    // conditional — the grid needs to match however many actually render.
+    $botnavCount = 3 + ($showTracking ? 1 : 0) + ($whatsappLink ? 1 : 0) + ($imoLink ? 1 : 0) + (! $whatsappLink && ! $imoLink ? 1 : 0);
+@endphp
 <nav class="zc-botnav zc-no-print" aria-label="Mobile">
-    <div class="zc-botnav__row">
+    <div class="zc-botnav__row" style="grid-template-columns:repeat({{ $botnavCount }}, minmax(0,1fr));">
         <a href="{{ route('storefront.home') }}" @class(['is-active' => request()->routeIs('storefront.home')])>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 11 12 3l9 8"/><path d="M5 10v10h14V10"/></svg><span>Home</span>
         </a>
@@ -413,7 +436,13 @@
         <a href="{{ $whatsappLink }}" target="_blank" rel="noopener" class="zc-botnav__wa" aria-label="Chat on WhatsApp">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.5 15.3L2 22l4.8-1.5A10 10 0 1 0 12 2Zm0 18a8 8 0 0 1-4.1-1.1l-.3-.2-2.8.9.9-2.8-.2-.3A8 8 0 1 1 12 20Zm4.4-6c-.2-.1-1.4-.7-1.6-.8s-.4-.1-.5.1-.6.8-.8 1-.3.2-.5 0a6.5 6.5 0 0 1-1.9-1.2 7.3 7.3 0 0 1-1.4-1.7c-.1-.2 0-.4.1-.5l.4-.4.2-.4v-.4l-.8-1.8c-.2-.5-.4-.4-.5-.4h-.5a1 1 0 0 0-.7.3A2.8 2.8 0 0 0 5.9 10a5 5 0 0 0 1 2.6 11 11 0 0 0 4.2 3.7c2 .8 2 .5 2.4.5a2.5 2.5 0 0 0 1.6-1.1 2 2 0 0 0 .1-1.1c0-.1-.2-.2-.4-.3Z"/></svg><span>WhatsApp</span>
         </a>
-        @else
+        @endif
+        @if ($imoLink)
+        <a href="{{ $imoLink }}" class="zc-botnav__imo" aria-label="Chat on IMO">
+            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/><path fill="#fff" d="M7 9.2c0-.9.7-1.6 1.6-1.6s1.6.7 1.6 1.6v5.6a1.6 1.6 0 1 1-3.2 0Zm5.4 0c0-.9.7-1.6 1.6-1.6s1.6.7 1.6 1.6v5.6a1.6 1.6 0 1 1-3.2 0Z"/></svg><span>IMO</span>
+        </a>
+        @endif
+        @if (! $whatsappLink && ! $imoLink)
         <button type="button" data-msearch-open style="background:none;border:none;color:inherit;font-family:inherit;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 2px;font-size:10.5px;font-weight:600;">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg><span>Search</span>
         </button>

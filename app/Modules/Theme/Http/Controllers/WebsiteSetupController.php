@@ -99,6 +99,7 @@ class WebsiteSetupController extends Controller
                     ['key' => 'social_youtube', 'label' => 'YouTube URL', 'type' => 'text'],
                     ['key' => 'social_whatsapp', 'label' => 'WhatsApp number', 'type' => 'text'],
                     ['key' => 'social_whatsapp_message', 'label' => 'WhatsApp default message', 'type' => 'textarea', 'help' => 'Pre-filled in the customer\'s chat box when they tap the WhatsApp button. Leave blank for the built-in default.'],
+                    ['key' => 'social_imo', 'label' => 'IMO number', 'type' => 'text', 'help' => 'Opens the IMO app via a chat deep link — IMO has no official web click-to-chat link like WhatsApp\'s, so this only works on a device with the IMO app installed.'],
                 ]],
             ]],
             'homepage' => ['title' => 'Homepage Text', 'sections' => [

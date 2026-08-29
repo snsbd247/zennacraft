@@ -232,6 +232,8 @@
     .zc-botnav__badge{position:absolute;top:2px;right:calc(50% - 20px);min-width:15px;height:15px;padding:0 3px;border-radius:999px;background:var(--honey);color:#3a2600;font-size:9px;font-weight:800;display:grid;place-items:center;}
     .zc-botnav__wa{color:#25d366;}
     .zc-botnav__wa svg{fill:#25d366;}
+    .zc-botnav__imo{color:#19b1e6;}
+    .zc-botnav__imo svg{fill:#19b1e6;}
 
     /* ---------- Floating WhatsApp contact button (desktop, bottom-right) ---------- */
     .zc-wafab{position:fixed;right:22px;bottom:24px;z-index:65;display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:50%;background:#25d366;color:#fff;box-shadow:0 14px 30px -10px rgba(37,211,102,.7),0 5px 12px -5px rgba(0,0,0,.35);transition:transform .16s ease;}
@@ -241,6 +243,16 @@
     .zc-wafab::after{content:"";position:absolute;inset:0;border-radius:50%;box-shadow:0 0 0 0 rgba(37,211,102,.5);animation:zc-wa-pulse 2.4s infinite;pointer-events:none;}
     .zc-wafab:hover::after{animation:none;}
     @keyframes zc-wa-pulse{0%{box-shadow:0 0 0 0 rgba(37,211,102,.5);}70%{box-shadow:0 0 0 16px rgba(37,211,102,0);}100%{box-shadow:0 0 0 0 rgba(37,211,102,0);}}
+
+    /* ---------- Floating IMO contact button — same treatment as WhatsApp's,
+       stacked above it (instead of overlapping) when both are configured. ---------- */
+    .zc-imofab{position:fixed;right:22px;bottom:24px;z-index:65;display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:50%;background:#19b1e6;color:#fff;box-shadow:0 14px 30px -10px rgba(25,177,230,.7),0 5px 12px -5px rgba(0,0,0,.35);transition:transform .16s ease;}
+    .zc-imofab--stacked{bottom:90px;}
+    .zc-imofab svg{width:30px;height:30px;flex:none;}
+    .zc-imofab:hover{transform:translateY(-2px) scale(1.05);}
+    .zc-imofab::after{content:"";position:absolute;inset:0;border-radius:50%;box-shadow:0 0 0 0 rgba(25,177,230,.5);animation:zc-imo-pulse 2.4s infinite;pointer-events:none;}
+    .zc-imofab:hover::after{animation:none;}
+    @keyframes zc-imo-pulse{0%{box-shadow:0 0 0 0 rgba(25,177,230,.5);}70%{box-shadow:0 0 0 16px rgba(25,177,230,0);}100%{box-shadow:0 0 0 0 rgba(25,177,230,0);}}
 
     /* ---------- Mobile drawer menu ---------- */
     .zc-drawer{position:fixed;inset:0;z-index:80;visibility:hidden;}
@@ -293,6 +305,7 @@
         body{padding-bottom:70px;}
         .zc-act--hidem{display:none;}
         .zc-wafab{display:none;}
+        .zc-imofab{display:none;}
     }
     @media(max-width:560px){
         .zc-wrap{padding:0 16px;}
