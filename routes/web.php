@@ -220,6 +220,7 @@ Route::prefix($adminPath)->group(function () {
                 Route::get("categories/$categoryLevel", [\App\Modules\Catalog\Http\Controllers\CategoryController::class, 'index'])->defaults('level', $categoryLevel)->name("categories.$categoryLevel.index");
                 Route::get("categories/$categoryLevel/create", [\App\Modules\Catalog\Http\Controllers\CategoryController::class, 'create'])->defaults('level', $categoryLevel)->name("categories.$categoryLevel.create");
                 Route::get("categories/$categoryLevel/{category}/edit", [\App\Modules\Catalog\Http\Controllers\CategoryController::class, 'edit'])->defaults('level', $categoryLevel)->name("categories.$categoryLevel.edit");
+                Route::get("categories/$categoryLevel/{category}", [\App\Modules\Catalog\Http\Controllers\CategoryController::class, 'show'])->defaults('level', $categoryLevel)->name("categories.$categoryLevel.show");
             });
             Route::middleware(['permission:category.create'])->post("categories/$categoryLevel", [\App\Modules\Catalog\Http\Controllers\CategoryController::class, 'store'])->defaults('level', $categoryLevel)->name("categories.$categoryLevel.store");
             Route::middleware(['permission:category.update'])->put("categories/$categoryLevel/{category}", [\App\Modules\Catalog\Http\Controllers\CategoryController::class, 'update'])->defaults('level', $categoryLevel)->name("categories.$categoryLevel.update");

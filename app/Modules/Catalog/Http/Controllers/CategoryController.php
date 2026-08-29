@@ -37,6 +37,23 @@ class CategoryController extends Controller
         ]));
     }
 
+    public function show(Request $request, Category $category): View
+    {
+        $level = (string) $request->route('level');
+        $search = trim((string) $request->query('q', ''));
+
+        $products = $category->products()
+            ->with('thumbnail')
+            ->when($search !== '', fn (Builder $q) => $q->where('name', 'like', '%'.$search.'%'))
+            ->orderBy('name')
+            ->paginate(20)->withQueryString();
+
+        return view('studio.categories.show', array_merge($this->meta($level), [
+            'level' => $level, 'category' => $category->load('image'), 'products' => $products, 'search' => $search,
+            'mediaUrl' => fn ($media) => $media ? $this->mediaService->url($media) : null,
+        ]));
+    }
+
     public function create(string $level): View
     {
         return view('studio.categories.form', array_merge($this->meta($level), [

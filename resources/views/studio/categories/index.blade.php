@@ -61,6 +61,7 @@
                         @endif
                         <td>
                             <div class="zc-sm-act">
+                                <a href="{{ route('categories.'.$level.'.show', $category) }}" class="zc-sm-btn zc-sm-btn--view" title="View products"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg></a>
                                 <a href="{{ route('categories.'.$level.'.edit', $category) }}" class="zc-sm-btn zc-sm-btn--edit" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h4L18 10l-4-4L4 16z"/></svg></a>
                                 <button type="button" class="zc-sm-btn zc-sm-btn--tog" title="Toggle status" data-toggle="{{ route('categories.toggle', $category) }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v8"/></svg></button>
                                 @if ($isSub)<button type="button" class="zc-cat-btn-disc" data-discount="{{ route('categories.discount', $category) }}" data-current="{{ (float) $category->discount_percent }}">apply discount</button>@endif
