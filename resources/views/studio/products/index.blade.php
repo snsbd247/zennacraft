@@ -74,9 +74,27 @@
         .zc-pm-dots:hover { border-color:rgba(95,211,154,0.5); background:rgba(95,211,154,0.12); }
         .zc-pm-dots svg { width:1.1rem; height:1.1rem; }
         .zc-pm-pop { position:relative; }
-        .zc-pm-menu { position:absolute; right:0; z-index:40; margin-top:0.4rem; width:12rem; padding:0.5rem;
-            display:grid; gap:0.4rem; border-radius:14px; border:1px solid var(--studio-border);
-            background:var(--studio-surface); box-shadow:0 26px 60px -28px rgba(16,24,40,0.28); }
+        /* Portaled to <body> on open (see studio-scripts below) so the menu
+           escapes .studio-responsive-scroll's overflow-x:auto clipping —
+           without this, the action menu on the last (rightmost) column gets
+           cut off or is entirely inaccessible once the table scrolls
+           horizontally, which is exactly what happens on mobile. */
+        .zc-pm-menu {
+            --studio-surface:#ffffff; --studio-surface-soft:#f7f9fc;
+            --studio-border:#e7ebf1; --studio-text:#0f172a; --studio-muted:#64748b;
+            position:fixed; z-index:80; width:12rem; padding:0.5rem;
+            max-height:min(74vh, 32rem); overflow-y:auto; overscroll-behavior:contain;
+            display:grid; gap:0.4rem; border-radius:14px; border:1px solid #e7ebf1;
+            background:#ffffff; box-shadow:0 2px 4px rgba(16,24,40,0.04), 0 26px 60px -22px rgba(16,24,40,0.32);
+            transform-origin:top right; }
+        .zc-pm-menu.is-left { transform-origin:top left; }
+        .zc-pm-menu.is-up { transform-origin:bottom right; }
+        .zc-pm-menu.is-up.is-left { transform-origin:bottom left; }
+        .zc-pm-menu.is-opening { animation:zc-pm-pop-in .18s cubic-bezier(.33,1.3,.5,1); }
+        .zc-pm-menu.is-opening.is-up { animation-name:zc-pm-pop-in-up; }
+        @keyframes zc-pm-pop-in { from { opacity:0; transform:translateY(-7px) scale(0.96); } to { opacity:1; transform:none; } }
+        @keyframes zc-pm-pop-in-up { from { opacity:0; transform:translateY(7px) scale(0.96); } to { opacity:1; transform:none; } }
+        .no-js .zc-pm-menu { position:absolute; right:0; top:100%; }
         .zc-pm-menu form { margin:0; }
         .zc-pm-mbtn { display:block; width:100%; text-align:center; padding:0.5rem 0.6rem; border-radius:9px; border:none;
             font-size:0.82rem; font-weight:800; cursor:pointer; text-decoration:none; }
@@ -255,11 +273,81 @@
 
     @push('studio-scripts')
         <script>
-            document.addEventListener('click', (e) => {
-                document.querySelectorAll('details.zc-pm-pop[open]').forEach((d) => {
-                    if (!d.contains(e.target)) d.removeAttribute('open');
+            // Action menu: portaled to <body> while open so it escapes the
+            // table's horizontal-scroll clipping (see .zc-pm-menu CSS above)
+            // — otherwise the last column's dropdown is unreachable on mobile.
+            (function () {
+                const positionPop = (det) => {
+                    const summary = det.querySelector('summary');
+                    const menu = det.__menu;
+                    if (!summary || !menu) return;
+                    const gap = 6, pad = 8;
+                    const vw = document.documentElement.clientWidth, vh = window.innerHeight;
+                    const r = summary.getBoundingClientRect();
+                    const mw = menu.offsetWidth, mh = menu.offsetHeight;
+                    let left = menu.classList.contains('is-left') ? r.left : (r.right - mw);
+                    left = Math.max(pad, Math.min(left, vw - mw - pad));
+                    const roomBelow = vh - r.bottom - gap - pad;
+                    const roomAbove = r.top - gap - pad;
+                    let top, up = false;
+                    if (mh <= roomBelow || roomBelow >= roomAbove) { top = r.bottom + gap; }
+                    else { up = true; top = r.top - gap - mh; }
+                    top = Math.max(pad, Math.min(top, vh - mh - pad));
+                    menu.classList.toggle('is-up', up);
+                    menu.style.left = left + 'px';
+                    menu.style.top = top + 'px';
+                };
+                const openPop = (det) => {
+                    const menu = det.__menu || det.querySelector('.zc-pm-menu');
+                    if (!menu) return;
+                    det.__menu = menu; menu.__owner = det;
+                    if (menu.parentElement !== document.body) document.body.appendChild(menu);
+                    positionPop(det);
+                    menu.classList.add('is-opening');
+                    menu.addEventListener('animationend', () => menu.classList.remove('is-opening'), { once: true });
+                };
+                const closePop = (det) => {
+                    if (!det) return;
+                    const menu = det.__menu;
+                    if (menu && menu.parentElement === document.body) {
+                        if (det.isConnected) det.appendChild(menu); else menu.remove();
+                    }
+                    if (det.hasAttribute('open')) det.removeAttribute('open');
+                };
+                const closeAllPops = (except) => {
+                    document.querySelectorAll('details.zc-pm-pop[open]').forEach((d) => { if (d !== except) closePop(d); });
+                    document.querySelectorAll('body > .zc-pm-menu').forEach((m) => {
+                        if (m.__owner && m.__owner !== except) closePop(m.__owner);
+                        else if (!m.__owner) m.remove();
+                    });
+                };
+
+                document.addEventListener('toggle', (e) => {
+                    const det = e.target;
+                    if (!det.matches || !det.matches('details.zc-pm-pop')) return;
+                    if (det.open) { closeAllPops(det); openPop(det); } else { closePop(det); }
+                }, true);
+                document.addEventListener('click', (e) => {
+                    const sum = e.target.closest && e.target.closest('details.zc-pm-pop > summary');
+                    if (!sum) return;
+                    const det = sum.parentElement;
+                    requestAnimationFrame(() => { if (det.open) { closeAllPops(det); openPop(det); } else { closePop(det); } });
+                }, true);
+
+                document.addEventListener('click', (e) => {
+                    if (e.target.closest('.zc-pm-pop') || e.target.closest('.zc-pm-menu')) return;
+                    closeAllPops(null);
                 });
-            });
+                document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAllPops(null); });
+
+                const repositionOpenPops = () => document.querySelectorAll('details.zc-pm-pop[open]').forEach(positionPop);
+                window.addEventListener('scroll', (e) => {
+                    const t = e.target;
+                    if (t && t.nodeType === 1 && t.closest && t.closest('.zc-pm-menu')) return;
+                    repositionOpenPops();
+                }, true);
+                window.addEventListener('resize', repositionOpenPops);
+            })();
 
             // Count the stat numbers up from zero on load.
             (function () {
