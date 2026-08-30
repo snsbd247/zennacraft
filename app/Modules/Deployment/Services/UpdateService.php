@@ -136,7 +136,7 @@ class UpdateService
             }
 
             $this->step($deployment, 'composer', 'info', 'Running composer install...');
-            $composerResult = $this->run(['composer', 'install', '--no-dev', '--optimize-autoloader', '--no-interaction'], timeout: 240);
+            $composerResult = $this->run([$this->composerBinary(), 'install', '--no-dev', '--optimize-autoloader', '--no-interaction'], timeout: 240);
             $deployment->update(['composer_ran' => $composerResult->successful()]);
             $this->step($deployment, 'composer', $composerResult->successful() ? 'info' : 'warning', $composerResult->successful()
                 ? 'composer install completed.'
@@ -190,6 +190,24 @@ class UpdateService
     protected function run(array $command, int $timeout = 60)
     {
         return Process::path(base_path())->timeout($timeout)->run($command);
+    }
+
+    /**
+     * The queue worker's cron environment doesn't necessarily carry the
+     * same PATH as an interactive shell — composer can live somewhere
+     * like ~/bin/composer that a bare "composer" won't resolve. Confirmed
+     * live: the first real deploy silently skipped composer install for
+     * exactly this reason.
+     */
+    protected function composerBinary(): string
+    {
+        foreach ([getenv('HOME').'/bin/composer', '/usr/local/bin/composer'] as $candidate) {
+            if (is_file($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return 'composer';
     }
 
     protected function step(DeploymentRun $deployment, string $step, string $level, string $message): void

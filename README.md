@@ -83,5 +83,3 @@ Before going live, work through [docs/production-security-checklist.md](docs/pro
 - [docs/profit-definitions.md](docs/profit-definitions.md) — how gross profit/COGS are calculated across the app
 - [docs/production-security-checklist.md](docs/production-security-checklist.md) — pre-launch hardening checklist
 - [docs/api/README.md](docs/api/README.md) — public API (`/api/v1/*`) reference
-
-<!-- update-system-e2e-test-marker -->
