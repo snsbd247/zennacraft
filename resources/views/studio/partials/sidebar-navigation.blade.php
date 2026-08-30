@@ -188,6 +188,7 @@
             ],
         ],
         ['type' => 'link', 'label' => 'Backup', 'route' => 'backups.index', 'pattern' => 'backups.*', 'icon' => 'backup'],
+        ['type' => 'link', 'label' => 'Update System', 'route' => 'deployment.index', 'pattern' => 'deployment.*', 'icon' => 'deployment'],
         ['type' => 'link', 'label' => 'License', 'route' => 'license.verification', 'pattern' => 'license.*', 'icon' => 'license'],
     ];
 
@@ -212,6 +213,7 @@
             'settings' => '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 0 1-4 0v-.1A1.6 1.6 0 0 0 7 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0-1.1-2.7H1a2 2 0 0 1 0-4h.1A1.6 1.6 0 0 0 2.6 7a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H7a1.6 1.6 0 0 0 1-1.5V1a2 2 0 0 1 4 0v.1a1.6 1.6 0 0 0 2.7 1.1 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V7a1.6 1.6 0 0 0 1.5 1H23a2 2 0 0 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/>',
             'license' => '<path d="M12 2.5 4 6v5.5c0 4.6 3.2 7.5 8 9 4.8-1.5 8-4.4 8-9V6z"/><circle cx="12" cy="10.5" r="2"/><path d="M12 12.5v3"/>',
             'backup' => '<ellipse cx="12" cy="5.5" rx="8" ry="3"/><path d="M4 5.5V12c0 1.7 3.6 3 8 3s8-1.3 8-3V5.5"/><path d="M4 12v6.5c0 1.7 3.6 3 8 3s8-1.3 8-3V12"/>',
+            'deployment' => '<path d="M12 2v13"/><path d="m7 10 5 5 5-5"/><path d="M4 18v1a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1"/>',
             'chevron' => '<path d="M9 6l6 6-6 6"/>',
             default => '<circle cx="12" cy="12" r="1.5"/>',
         };

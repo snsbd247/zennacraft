@@ -238,6 +238,13 @@ Route::prefix($adminPath)->group(function () {
             Route::post('backups/run', [\App\Modules\Backup\Http\Controllers\BackupController::class, 'runNow'])->name('backups.run');
         });
 
+        // --- Update System (git pull + composer install + migrate) ---
+        Route::middleware(['permission:deployment.view'])->group(function () {
+            Route::get('deployment', [\App\Modules\Deployment\Http\Controllers\DeploymentController::class, 'index'])->name('deployment.index');
+            Route::get('deployment/check', [\App\Modules\Deployment\Http\Controllers\DeploymentController::class, 'checkUpdates'])->name('deployment.check');
+        });
+        Route::middleware(['permission:deployment.run'])->post('deployment/run', [\App\Modules\Deployment\Http\Controllers\DeploymentController::class, 'runNow'])->name('deployment.run');
+
         // --- Sliders (storefront homepage banners; one page per placement) ---
         $sliderPlacements = ['hero' => 'home_hero', 'side' => 'home_side', 'promo' => 'home_promo'];
         Route::middleware(['permission:theme.view'])->group(function () use ($sliderPlacements) {

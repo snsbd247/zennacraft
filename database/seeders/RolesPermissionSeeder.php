@@ -104,6 +104,7 @@ class RolesPermissionSeeder extends Seeder
             'backup.create',
             'backup.validate',
             'deployment.view',
+            'deployment.run',
             'risk.view',
             'risk.recalculate',
             'risk.hold.view',

@@ -103,6 +103,7 @@ class PermissionsSeeder extends Seeder
             ['name' => 'Create Backups', 'slug' => 'backup.create', 'module' => 'backup'],
             ['name' => 'Validate Backups', 'slug' => 'backup.validate', 'module' => 'backup'],
             ['name' => 'View Deployment', 'slug' => 'deployment.view', 'module' => 'deployment'],
+            ['name' => 'Run Deployment (git pull + migrate)', 'slug' => 'deployment.run', 'module' => 'deployment'],
             ['name' => 'View RTO Risk', 'slug' => 'risk.view', 'module' => 'risk'],
             ['name' => 'Recalculate RTO Risk', 'slug' => 'risk.recalculate', 'module' => 'risk'],
             ['name' => 'View RTO Holds', 'slug' => 'risk.hold.view', 'module' => 'risk'],
