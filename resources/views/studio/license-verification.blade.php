@@ -64,12 +64,10 @@
         </div>
     </div>
 
-    @if ($blocked)
-        <div class="zc-lic-blocked">
-            <b>This installation is currently blocked.</b>
-            <span data-block-message>{{ $message ?: 'Enter a valid license key below to continue.' }}</span>
-        </div>
-    @endif
+    <div class="zc-lic-blocked" data-blocked-banner @if (! $blocked) hidden @endif>
+        <b>This installation is currently blocked.</b>
+        <span data-block-message>{{ $message ?: 'Enter a valid license key below to continue.' }}</span>
+    </div>
 
     <div class="zc-lic-card">
         <h3>{{ $has_key ? 'Re-activate / renew' : 'Activate this installation' }}</h3>
@@ -117,8 +115,12 @@
         document.querySelector('[data-days-left]').textContent = (d.days_until_expiry ?? '—');
         var statusMsg = document.querySelector('[data-status-message]');
         if (statusMsg) statusMsg.textContent = d.message || 'No issues to report.';
-        var blockMsg = document.querySelector('[data-block-message]');
-        if (blockMsg) blockMsg.textContent = d.message || 'Enter a valid license key below to continue.';
+        var banner = document.querySelector('[data-blocked-banner]');
+        if (banner) {
+            banner.hidden = !d.blocked;
+            var blockMsg = banner.querySelector('[data-block-message]');
+            if (blockMsg) blockMsg.textContent = d.message || 'Enter a valid license key below to continue.';
+        }
     }
 
     // ---- Activate ----
