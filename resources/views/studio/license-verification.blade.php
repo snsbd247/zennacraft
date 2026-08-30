@@ -59,6 +59,8 @@
         </div>
         <div class="zc-lic-grid">
             <div class="zc-lic-cell"><div class="zc-lic-cell__l">License key</div><div class="zc-lic-cell__v" data-masked-key>{{ $masked_key ?: '—' }}</div></div>
+            <div class="zc-lic-cell"><div class="zc-lic-cell__l">Domain</div><div class="zc-lic-cell__v" data-licensed-domain>{{ $licensed_domain ?: '—' }}</div></div>
+            <div class="zc-lic-cell"><div class="zc-lic-cell__l">Activated</div><div class="zc-lic-cell__v" data-activated-at>{{ $activated_at ? \Illuminate\Support\Carbon::parse($activated_at)->toFormattedDateString() : '—' }}</div></div>
             <div class="zc-lic-cell"><div class="zc-lic-cell__l">Expires</div><div class="zc-lic-cell__v" data-expires-at>{{ $expires_at ? \Illuminate\Support\Carbon::parse($expires_at)->toFormattedDateString() : '—' }}</div></div>
             <div class="zc-lic-cell"><div class="zc-lic-cell__l">Days left</div><div class="zc-lic-cell__v" data-days-left>{{ $days_until_expiry ?? '—' }}</div></div>
         </div>
@@ -111,6 +113,8 @@
         badge.className = 'zc-badge ' + (badgeClasses[d.status] || 'zc-badge--blocked');
         badge.textContent = badgeLabels[d.status] || d.status;
         document.querySelector('[data-masked-key]').textContent = d.masked_key || '—';
+        document.querySelector('[data-licensed-domain]').textContent = d.licensed_domain || '—';
+        document.querySelector('[data-activated-at]').textContent = d.activated_at ? new Date(d.activated_at).toDateString() : '—';
         document.querySelector('[data-expires-at]').textContent = d.expires_at ? new Date(d.expires_at).toDateString() : '—';
         document.querySelector('[data-days-left]').textContent = (d.days_until_expiry ?? '—');
         var statusMsg = document.querySelector('[data-status-message]');

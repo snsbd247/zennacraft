@@ -100,6 +100,20 @@ class LicenseVerificationTest extends TestCase
         $this->assertFalse($this->service()->getEffectiveStatus()['blocked']);
     }
 
+    public function test_activate_stores_domain_and_activated_at_from_the_server_response(): void
+    {
+        $activatedAt = now()->subMinutes(5)->toIso8601String();
+        $payload = ['status' => 'activated', 'license_key' => 'ZC-TEST-0001', 'domain' => 'zennacraft.com', 'activated_at' => $activatedAt, 'expires_at' => now()->addYear()->toIso8601String()];
+        Http::fake(['*/license/activate' => Http::response($this->signedResponse($payload))]);
+
+        $this->service()->activate('ZC-TEST-0001');
+        $status = $this->service()->getEffectiveStatus();
+
+        $this->assertSame('zennacraft.com', $status['licensed_domain']);
+        $this->assertNotNull($status['activated_at']);
+        $this->assertTrue(\Illuminate\Support\Carbon::parse($status['activated_at'])->equalTo(\Illuminate\Support\Carbon::parse($activatedAt)));
+    }
+
     public function test_activate_rejects_a_response_with_an_invalid_signature(): void
     {
         $otherKey = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);

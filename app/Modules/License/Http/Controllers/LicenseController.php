@@ -56,6 +56,8 @@ class LicenseController extends Controller
             'has_key' => $status['has_key'],
             'masked_key' => $this->license->maskedKey(),
             'days_until_expiry' => $this->license->daysUntilExpiry(),
+            'licensed_domain' => $status['licensed_domain'],
+            'activated_at' => $status['activated_at'],
         ];
     }
 }

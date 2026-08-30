@@ -81,6 +81,17 @@ class LicenseService
         return $len <= 4 ? str_repeat('•', $len) : str_repeat('•', max(4, $len - 4)).substr($key, -4);
     }
 
+    /** The domain the license server has this key bound to — distinct from domain(), which is this request's own host. */
+    public function licensedDomain(): ?string
+    {
+        return LicenseState::current()->domain;
+    }
+
+    public function activatedAt(): ?Carbon
+    {
+        return LicenseState::current()->activated_at;
+    }
+
     public function daysUntilExpiry(): ?int
     {
         $expiresAt = LicenseState::current()->expires_at;
@@ -163,12 +174,16 @@ class LicenseService
 
     protected function result(string $status, bool $blocked, string $message, ?Carbon $expiresAt = null): array
     {
+        $state = LicenseState::current();
+
         return [
             'status' => $status,
             'blocked' => $blocked,
             'message' => $message,
             'expires_at' => $expiresAt?->toIso8601String(),
-            'has_key' => (bool) LicenseState::current()->license_key,
+            'has_key' => (bool) $state->license_key,
+            'licensed_domain' => $state->domain,
+            'activated_at' => $state->activated_at?->toIso8601String(),
         ];
     }
 
@@ -206,6 +221,8 @@ class LicenseService
 
         $state = LicenseState::current();
         $state->license_key = Crypt::encryptString($key);
+        $state->domain = (string) ($data['domain'] ?? $this->domain());
+        $state->activated_at = $this->parseDate($data['activated_at'] ?? null) ?? now();
         $state->status = 'active';
         $state->expires_at = $this->parseDate($data['expires_at'] ?? null);
         $state->message = (string) ($data['message'] ?? '');
@@ -262,6 +279,12 @@ class LicenseService
         }
 
         $state->status = $status;
+        if (! empty($data['domain'])) {
+            $state->domain = (string) $data['domain'];
+        }
+        if (! empty($data['activated_at'])) {
+            $state->activated_at = $this->parseDate($data['activated_at']);
+        }
         $state->expires_at = $this->parseDate($data['expires_at'] ?? null);
         $state->message = (string) ($data['message'] ?? '');
         $state->signature = (string) ($data['signature'] ?? '');

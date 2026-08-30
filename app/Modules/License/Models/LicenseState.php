@@ -12,6 +12,8 @@ class LicenseState extends Model
 {
     protected $fillable = [
         'license_key',
+        'domain',
+        'activated_at',
         'status',
         'expires_at',
         'last_checked_at',
@@ -21,6 +23,7 @@ class LicenseState extends Model
     ];
 
     protected $casts = [
+        'activated_at' => 'datetime',
         'expires_at' => 'datetime',
         'last_checked_at' => 'datetime',
         'last_check_ok' => 'boolean',
