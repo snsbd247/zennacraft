@@ -187,9 +187,17 @@
                 ['label' => 'Sub City', 'route' => 'subcities.index', 'pattern' => 'subcities.*'],
             ],
         ],
-        ['type' => 'link', 'label' => 'Backup', 'route' => 'backups.index', 'pattern' => 'backups.*', 'icon' => 'backup'],
-        ['type' => 'link', 'label' => 'Update System', 'route' => 'deployment.index', 'pattern' => 'deployment.*', 'icon' => 'deployment'],
-        ['type' => 'link', 'label' => 'License', 'route' => 'license.verification', 'pattern' => 'license.*', 'icon' => 'license'],
+        [
+            'type' => 'group',
+            'label' => 'System',
+            'icon' => 'backup',
+            'pattern' => ['backups.*', 'deployment.*', 'license.*'],
+            'children' => [
+                ['label' => 'Backup', 'route' => 'backups.index', 'pattern' => 'backups.*'],
+                ['label' => 'Update System', 'route' => 'deployment.index', 'pattern' => 'deployment.*'],
+                ['label' => 'License', 'route' => 'license.verification', 'pattern' => 'license.*'],
+            ],
+        ],
     ];
 
     $studioNavIcon = function (string $name): string {
