@@ -231,6 +231,13 @@ Route::prefix($adminPath)->group(function () {
         });
         Route::middleware(['permission:category.delete'])->delete('categories/{category}', [\App\Modules\Catalog\Http\Controllers\CategoryController::class, 'destroy'])->name('categories.destroy');
 
+        // --- Backups ---
+        Route::middleware(['permission:backup.view'])->get('backups', [\App\Modules\Backup\Http\Controllers\BackupController::class, 'index'])->name('backups.index');
+        Route::middleware(['permission:backup.create'])->group(function () {
+            Route::put('backups/settings', [\App\Modules\Backup\Http\Controllers\BackupController::class, 'updateSettings'])->name('backups.settings.update');
+            Route::post('backups/run', [\App\Modules\Backup\Http\Controllers\BackupController::class, 'runNow'])->name('backups.run');
+        });
+
         // --- Sliders (storefront homepage banners; one page per placement) ---
         $sliderPlacements = ['hero' => 'home_hero', 'side' => 'home_side', 'promo' => 'home_promo'];
         Route::middleware(['permission:theme.view'])->group(function () use ($sliderPlacements) {

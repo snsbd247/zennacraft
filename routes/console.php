@@ -31,6 +31,22 @@ Schedule::call(function (): void {
     }
 })->dailyAt('02:15')->name('backup-validation-check')->withoutOverlapping();
 
+// Time + enabled/disabled are Studio-configurable. This must NOT touch the
+// database at file-load time — routes/console.php is parsed on every app
+// boot (including plain HTTP requests), long before a request-scoped
+// connection/migration state can be assumed ready. So the whole thing runs
+// every minute and the closure itself — evaluated only when the scheduler
+// actually fires — decides whether this is the configured backup minute.
+Schedule::call(function (): void {
+    $service = app(BackupService::class);
+
+    if (! $service->isScheduleEnabled() || now()->format('H:i') !== $service->scheduleTime()) {
+        return;
+    }
+
+    Artisan::call('backup:run', ['--force' => true]);
+})->everyMinute()->name('scheduled-database-backup')->withoutOverlapping();
+
 Schedule::call(function (): void {
     $retentionDays = config('security.fraud_event_retention_days');
 

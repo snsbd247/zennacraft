@@ -29,6 +29,9 @@ class BackupRun extends Model
         'started_at',
         'completed_at',
         'failed_at',
+        'offsite_status',
+        'offsite_path',
+        'offsite_uploaded_at',
     ];
 
     protected $casts = [
@@ -38,6 +41,7 @@ class BackupRun extends Model
         'started_at' => 'datetime',
         'completed_at' => 'datetime',
         'failed_at' => 'datetime',
+        'offsite_uploaded_at' => 'datetime',
     ];
 
     public function createdBy(): BelongsTo

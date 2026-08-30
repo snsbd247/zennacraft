@@ -4,8 +4,10 @@ namespace App\Modules\Backup\Services;
 
 use App\Modules\Backup\Models\BackupLog;
 use App\Modules\Backup\Models\BackupRun;
+use App\Modules\Settings\Services\SettingService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Throwable;
@@ -14,6 +16,56 @@ use ZipArchive;
 class BackupService
 {
     protected string $disk = 'local';
+
+    public function __construct(protected SettingService $settings) {}
+
+    // --- Settings (Studio-configurable, group 'backup') --------------------
+
+    public function isScheduleEnabled(): bool
+    {
+        return filter_var($this->settings->get('backup', 'enabled', false), FILTER_VALIDATE_BOOLEAN);
+    }
+
+    public function scheduleTime(): string
+    {
+        $time = (string) $this->settings->get('backup', 'schedule_time', '03:00');
+
+        return preg_match('/^\d{2}:\d{2}$/', $time) ? $time : '03:00';
+    }
+
+    public function localRetentionDays(): int
+    {
+        return max(1, (int) $this->settings->get('backup', 'local_retention_days', 7));
+    }
+
+    public function dropboxRetentionDays(): int
+    {
+        return max(1, (int) $this->settings->get('backup', 'dropbox_retention_days', 30));
+    }
+
+    public function dropboxToken(): ?string
+    {
+        $token = $this->settings->getEncrypted('backup', 'dropbox_token');
+
+        return $token !== null && $token !== '' ? (string) $token : null;
+    }
+
+    public function hasDropboxConfigured(): bool
+    {
+        return $this->dropboxToken() !== null;
+    }
+
+    public function updateSettings(array $data): void
+    {
+        $this->settings->set('backup', 'enabled', ! empty($data['enabled']) ? '1' : '0', 'boolean');
+        $this->settings->set('backup', 'schedule_time', $data['schedule_time'] ?? '03:00');
+        $this->settings->set('backup', 'local_retention_days', (string) max(1, (int) ($data['local_retention_days'] ?? 7)), 'integer');
+        $this->settings->set('backup', 'dropbox_retention_days', (string) max(1, (int) ($data['dropbox_retention_days'] ?? 30)), 'integer');
+
+        if (! empty($data['dropbox_token'])) {
+            $this->settings->setEncrypted('backup', 'dropbox_token', $data['dropbox_token']);
+        }
+    }
 
     public function history(int $perPage = 15): LengthAwarePaginator
     {
@@ -230,6 +282,147 @@ class BackupService
             'validation_status' => $backup->validation_status,
             'restore_ready' => $backup->restore_ready,
         ];
+    }
+
+    /**
+     * Run a full backup (database + files), then — if a Dropbox token is
+     * configured — upload it off-server and prune old backups on both
+     * sides. This is what the daily schedule and the "Run now" Studio
+     * button both call.
+     */
+    public function runAndShip(array $scopes = ['database', 'files'], ?int $staffId = null): BackupRun
+    {
+        $backup = $this->createManualBackup($scopes);
+
+        if ($staffId) {
+            $backup->update(['created_by' => $staffId]);
+        }
+
+        if ($this->hasDropboxConfigured()) {
+            $this->uploadToDropbox($backup);
+        }
+
+        $this->pruneOldBackups();
+
+        return $backup->refresh();
+    }
+
+    public function uploadToDropbox(BackupRun $backup): void
+    {
+        $token = $this->dropboxToken();
+
+        if (! $token) {
+            return;
+        }
+
+        $paths = array_filter([$backup->database_path, $backup->files_path, $backup->manifest_path]);
+
+        if ($paths === []) {
+            return;
+        }
+
+        $remoteFolder = '/'.now()->format('Y-m-d').'-backup-'.$backup->id;
+        $uploaded = [];
+        $failed = false;
+
+        foreach ($paths as $path) {
+            $absolute = Storage::disk($this->disk)->path($path);
+
+            if (! is_file($absolute)) {
+                continue;
+            }
+
+            $remotePath = $remoteFolder.'/'.basename($path);
+
+            try {
+                $response = Http::withToken($token)
+                    ->withBody(file_get_contents($absolute), 'application/octet-stream')
+                    ->withHeaders([
+                        'Dropbox-API-Arg' => json_encode([
+                            'path' => $remotePath,
+                            'mode' => 'add',
+                            'autorename' => true,
+                            'mute' => true,
+                        ]),
+                    ])
+                    ->post('https://content.dropboxapi.com/2/files/upload');
+
+                if ($response->successful()) {
+                    $uploaded[] = $remotePath;
+                } else {
+                    $failed = true;
+                    $this->log($backup, 'error', 'Dropbox upload failed.', ['path' => $path, 'response' => $response->json()]);
+                }
+            } catch (Throwable $exception) {
+                $failed = true;
+                $this->log($backup, 'error', 'Dropbox upload threw an exception.', ['path' => $path, 'error' => $exception->getMessage()]);
+            }
+        }
+
+        $backup->update([
+            'offsite_status' => $uploaded === [] ? 'failed' : ($failed ? 'partial' : 'uploaded'),
+            'offsite_path' => $uploaded === [] ? null : $remoteFolder,
+            'offsite_uploaded_at' => $uploaded === [] ? null : now(),
+        ]);
+
+        $this->log($backup, $uploaded === [] ? 'error' : 'info', 'Dropbox upload finished.', [
+            'uploaded' => $uploaded,
+            'status' => $backup->offsite_status,
+        ]);
+    }
+
+    /**
+     * Deletes local backup artifacts + BackupRun rows past the configured
+     * local retention window, and prunes matching folders on Dropbox past
+     * its own (longer) retention window.
+     */
+    public function pruneOldBackups(): void
+    {
+        $localCutoff = now()->subDays($this->localRetentionDays());
+
+        BackupRun::where('created_at', '<', $localCutoff)->each(function (BackupRun $old) {
+            if ($old->directory) {
+                Storage::disk($old->disk)->deleteDirectory($old->directory);
+            }
+            $old->delete();
+        });
+
+        $token = $this->dropboxToken();
+
+        if (! $token) {
+            return;
+        }
+
+        $dropboxCutoff = now()->subDays($this->dropboxRetentionDays());
+
+        try {
+            $response = Http::withToken($token)
+                ->withHeaders(['Content-Type' => 'application/json'])
+                ->post('https://api.dropboxapi.com/2/files/list_folder', ['path' => '', 'limit' => 200]);
+
+            if (! $response->successful()) {
+                return;
+            }
+
+            foreach ($response->json('entries', []) as $entry) {
+                if (($entry['.tag'] ?? null) !== 'folder') {
+                    continue;
+                }
+
+                if (! preg_match('/^(\d{4}-\d{2}-\d{2})-backup-\d+$/', (string) $entry['name'], $m)) {
+                    continue;
+                }
+
+                if (\Illuminate\Support\Carbon::parse($m[1])->lt($dropboxCutoff)) {
+                    Http::withToken($token)
+                        ->withHeaders(['Content-Type' => 'application/json'])
+                        ->post('https://api.dropboxapi.com/2/files/delete_v2', ['path' => $entry['path_lower']]);
+                }
+            }
+        } catch (Throwable) {
+            // Best-effort pruning — a transient Dropbox API failure here
+            // should never fail the backup run itself.
+        }
     }
 
     protected function backupDatabase(BackupRun $backup, string $directory): string
