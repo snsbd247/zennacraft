@@ -144,6 +144,7 @@ Route::prefix($adminPath)->group(function () {
             Route::get('products/{product}/edit', [\App\Modules\Product\Http\Controllers\ProductController::class, 'edit'])->name('products.edit');
             Route::get('products/{product}/print', [\App\Modules\Product\Http\Controllers\ProductController::class, 'printLabel'])->name('products.print');
             Route::get('products/{product}/export-customers', [\App\Modules\Product\Http\Controllers\ProductController::class, 'exportCustomers'])->name('products.export-customers');
+            Route::get('products/addons/search', [\App\Modules\Product\Http\Controllers\ProductController::class, 'searchAddonProducts'])->name('products.addons.search');
         });
         Route::middleware(['permission:product.update'])->group(function () {
             Route::put('products/{product}', [\App\Modules\Product\Http\Controllers\ProductController::class, 'update'])->name('products.update');

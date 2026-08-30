@@ -80,13 +80,14 @@ class ProductController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        [$attributes, $variants, $images] = $this->validated($request);
+        [$attributes, $variants, $images, $addons] = $this->validated($request);
 
         $attributes['sku'] = filled($attributes['sku'] ?? null) ? $attributes['sku'] : 'ZC-'.strtoupper(Str::random(6));
 
         $product = $this->productService->create($attributes);
         $this->syncImages($product, $images);
         $this->syncVariants($product, $variants);
+        $this->syncAddons($product, $addons);
 
         // Auto-generate a one-page landing page for the new product (on by
         // default; toggle in Landing Page → Manage). Never let a landing hiccup
@@ -107,20 +108,73 @@ class ProductController extends Controller
 
     public function edit(Product $product): View
     {
-        $product->load(['category', 'thumbnail', 'sizeChart', 'galleryMedia', 'variants.image']);
+        $product->load(['category', 'thumbnail', 'sizeChart', 'galleryMedia', 'variants.image', 'addons.thumbnail']);
 
         return view('studio.products.form', $this->formData($product));
     }
 
     public function update(Product $product, Request $request): RedirectResponse
     {
-        [$attributes, $variants, $images] = $this->validated($request, $product);
+        [$attributes, $variants, $images, $addons] = $this->validated($request, $product);
 
         $this->productService->update($product, $attributes);
         $this->syncImages($product, $images);
         $this->syncVariants($product, $variants);
+        $this->syncAddons($product, $addons);
 
         return redirect()->route('products.index')->with('success', $product->name.' updated.');
+    }
+
+    /** AJAX: search products to attach as add-ons (excludes the product itself). */
+    public function searchAddonProducts(Request $request): JsonResponse
+    {
+        $term = trim((string) $request->query('q', ''));
+        $exclude = (int) $request->query('exclude', 0);
+        if (mb_strlen($term) < 1) {
+            return response()->json(['results' => []]);
+        }
+
+        $products = Product::query()
+            ->when($exclude, fn ($q) => $q->where('id', '!=', $exclude))
+            ->where(fn ($q) => $q->where('name', 'like', '%'.$term.'%')->orWhere('sku', 'like', '%'.$term.'%'))
+            ->with('thumbnail')
+            ->orderBy('name')
+            ->limit(12)
+            ->get();
+
+        return response()->json([
+            'results' => $products->map(fn (Product $p) => [
+                'id' => $p->id,
+                'name' => $p->name,
+                'sku' => $p->sku,
+                'price' => (float) $p->price,
+                'thumb' => $p->thumbnail ? $this->mediaService->url($p->thumbnail) : null,
+            ])->values(),
+        ]);
+    }
+
+    /**
+     * Reconciles the product's add-on list to the submitted set.
+     *
+     * @param  array<int, array<string, mixed>>  $addons
+     */
+    private function syncAddons(Product $product, array $addons): void
+    {
+        $sync = [];
+
+        foreach (array_values($addons) as $i => $row) {
+            $addonId = (int) ($row['product_id'] ?? 0);
+            if ($addonId <= 0 || $addonId === $product->id) {
+                continue;
+            }
+
+            $sync[$addonId] = [
+                'custom_price' => filled($row['custom_price'] ?? null) ? (float) $row['custom_price'] : null,
+                'sort_order' => $i,
+            ];
+        }
+
+        $product->addons()->sync($sync);
     }
 
     /** Shared form payload for create + edit. */
@@ -159,6 +213,16 @@ class ProductController extends Controller
             'brands' => Brand::where('status', 'active')->orderBy('position')->orderBy('name')->get(['id', 'name']),
             'sizeOptions' => $sizeOptions,
             'colorOptions' => $colorOptions,
+            'existingAddons' => $product->exists
+                ? $product->addons->map(fn (Product $p) => [
+                    'id' => $p->id,
+                    'name' => $p->name,
+                    'sku' => $p->sku,
+                    'price' => (float) $p->price,
+                    'custom_price' => $p->pivot->custom_price !== null ? (float) $p->pivot->custom_price : null,
+                    'thumb' => $p->thumbnail ? $this->mediaService->url($p->thumbnail) : null,
+                ])->values()->all()
+                : [],
             'mediaUrl' => fn ($media) => $media ? $this->mediaService->url($media) : null,
         ];
     }
@@ -230,6 +294,9 @@ class ProductController extends Controller
             'variants.*.size' => ['nullable', 'string', 'max:60'],
             'variants.*.stock' => ['nullable', 'integer', 'min:0'],
             'variants.*.image' => ['nullable', 'image', 'max:4096'],
+            'addons' => ['nullable', 'array'],
+            'addons.*.product_id' => ['required', 'integer', 'exists:products,id'],
+            'addons.*.custom_price' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $list = (float) $data['list_price'];
@@ -267,7 +334,7 @@ class ProductController extends Controller
             $variants[$i]['image'] = $request->file("variants.$i.image");
         }
 
-        return [$attributes, $variants, $images];
+        return [$attributes, $variants, $images, $data['addons'] ?? []];
     }
 
     private function syncImages(Product $product, array $images): void

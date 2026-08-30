@@ -75,6 +75,11 @@
         'stock' => (int) ($v->stock ?? 0),
         'img' => $mediaUrl($v->image ?? null),
     ])->values();
+
+    // Add-ons: other products this one can be ordered together with (e.g.
+    // Bedsheet + Kulbalish Cover). custom_price overrides the add-on's own
+    // price when the admin set one.
+    $addons = collect($product->addons ?? []);
 @endphp
 
 {{-- .pdp2* CSS moved to public/assets/storefront.css. --}}
@@ -173,11 +178,36 @@
                 </div>
             @endif
 
+            @if ($addons->isNotEmpty())
+                <div class="pdp2__group" id="pdp2-addons">
+                    <div class="pdp2__glabel">Add-ons: <span class="hint">select any to add to your order</span></div>
+                    <div style="display:grid;gap:8px;">
+                        @foreach ($addons as $ad)
+                            @php
+                                $adPrice = $ad->pivot->custom_price !== null ? (float) $ad->pivot->custom_price : (float) $ad->price;
+                                $adImg = $mediaUrl($ad->thumbnail ?? null);
+                            @endphp
+                            <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;cursor:pointer;">
+                                <input type="checkbox" data-addon-pick data-addon-id="{{ $ad->id }}" data-addon-price="{{ $adPrice }}" style="width:18px;height:18px;flex:none;">
+                                <span style="width:40px;height:40px;border-radius:8px;overflow:hidden;background:var(--panel);flex:none;display:grid;place-items:center;">
+                                    @if ($adImg)<img src="{{ $adImg }}" alt="" style="width:100%;height:100%;object-fit:cover;">@endif
+                                </span>
+                                <span style="flex:1;min-width:0;">
+                                    <span style="display:block;font-weight:700;font-size:13.5px;">{{ $ad->name }}</span>
+                                    <span style="display:block;font-size:12.5px;color:var(--muted);">+৳{{ number_format($adPrice) }}</span>
+                                </span>
+                            </label>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+
             <form method="POST" action="{{ route('cart.add-many') }}" id="pdp2-form" data-cart-ajax>
                 @csrf
                 <input type="hidden" name="product_id" value="{{ $product->id }}">
                 <input type="hidden" name="checkout" id="pdp2-checkout" value="0">
                 <div id="pdp2-inputs"></div>
+                <div id="pdp2-addon-inputs"></div>
                 <div class="pdp2__buys">
                     <button type="button" class="zc-btn zc-btn--outline pdp2__wish" aria-label="Wishlist" onclick="this.classList.toggle('is-on');this.style.color=this.classList.contains('is-on')?'var(--sale)':'';"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20s-7-4.5-9.5-9C1 8 2.5 4.5 6 4.5c2 0 3.2 1.2 4 2.3.8-1.1 2-2.3 4-2.3 3.5 0 5 3.5 3.5 6.5C19 15.5 12 20 12 20Z"/></svg></button>
                     <button type="submit" class="zc-btn zc-btn--outline" data-checkout="0">Add to Cart</button>
@@ -363,6 +393,24 @@
         document.getElementById('pdp2-bq-plus').addEventListener('click',function(){bq.value=Math.min(99,(parseInt(bq.value)||1)+1);baseInputs();});
         bq.addEventListener('input',baseInputs);
     }
+
+    // Add-ons (separate products, e.g. a Kulbalish Cover offered with a Bedsheet).
+    // Kept in their own hidden-input container with a high index offset so they
+    // never collide with the variant/base-qty items rebuilt by render()/baseInputs().
+    (function(){
+        var box=document.getElementById('pdp2-addon-inputs');
+        if(!box) return;
+        function sync(){
+            var html='', i=500;
+            document.querySelectorAll('[data-addon-pick]:checked').forEach(function(cb){
+                html+='<input type="hidden" name="items['+i+'][product_id]" value="'+cb.getAttribute('data-addon-id')+'"><input type="hidden" name="items['+i+'][quantity]" value="1">';
+                i++;
+            });
+            box.innerHTML=html;
+        }
+        document.querySelectorAll('[data-addon-pick]').forEach(function(cb){ cb.addEventListener('change', sync); });
+        sync();
+    })();
 
     // Submit
     var form=document.getElementById('pdp2-form');

@@ -146,7 +146,7 @@ class StorefrontController extends Controller
         //      shopper can pick any active product.
         //   4. A genuinely external cta_url -> keep it as a plain link (no form).
         $ids = $landingPage->suggested_products ?? [];
-        $variantLoad = ['thumbnail', 'category', 'variants' => fn ($q) => $q->where('status', 'active')->where('show_on_storefront', true)->orderBy('sort_order')->with('image')];
+        $variantLoad = ['thumbnail', 'category', 'variants' => fn ($q) => $q->where('status', 'active')->where('show_on_storefront', true)->orderBy('sort_order')->with('image'), 'addons' => fn ($q) => $q->where('products.status', 'active')];
 
         // A cta_url may reference a specific product either as a product page
         // (/products/{slug}) or as a checkout link (?product_id={id}) — either
@@ -178,6 +178,30 @@ class StorefrontController extends Controller
         } else {
             $suggestedProducts = Product::where('status', 'active')
                 ->with($variantLoad)->latest()->limit(50)->get();
+        }
+
+        // Pull in each shown product's add-ons (e.g. a Kulbalish Cover offered
+        // alongside a Bedsheet) so the one-page order form's existing
+        // multi-select already lets the shopper tick both together.
+        $addonCustomPrices = [];
+        foreach ($suggestedProducts as $p) {
+            foreach ($p->addons as $ad) {
+                if ($ad->pivot->custom_price !== null) {
+                    $addonCustomPrices[$ad->id] = (float) $ad->pivot->custom_price;
+                }
+            }
+        }
+        $addonIds = $suggestedProducts->flatMap(fn ($p) => $p->addons->pluck('id'))
+            ->unique()->diff($suggestedProducts->pluck('id'))->values();
+        if ($addonIds->isNotEmpty()) {
+            $addonProducts = Product::whereIn('id', $addonIds)->where('status', 'active')
+                ->with($variantLoad)->get()
+                ->each(function ($ap) use ($addonCustomPrices) {
+                    if (isset($addonCustomPrices[$ap->id]) && $ap->variants->isEmpty()) {
+                        $ap->price = $addonCustomPrices[$ap->id];
+                    }
+                });
+            $suggestedProducts = $suggestedProducts->concat($addonProducts)->values();
         }
 
         $delivery = app(\App\Modules\Checkout\Services\DeliveryChargeService::class);

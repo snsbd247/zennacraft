@@ -104,6 +104,22 @@
         .zc-pf-add .studio-form-control { flex:1; }
         .zc-pf-vsku { width:8rem; text-transform:uppercase; font-size:0.78rem; }
 
+        /* Add-ons picker */
+        .zc-pf-ad-pick { position:relative; max-width:26rem; }
+        .zc-pf-ad-results { position:absolute; z-index:20; left:0; right:0; top:calc(100% + 4px); background:var(--studio-surface); border:1px solid var(--studio-border); border-radius:12px; box-shadow:0 20px 40px -20px rgba(0,0,0,.35); max-height:280px; overflow:auto; display:none; }
+        .zc-pf-ad-results.show { display:block; }
+        .zc-pf-ad-res { display:flex; align-items:center; gap:0.7rem; padding:0.55rem 0.8rem; cursor:pointer; border-bottom:1px solid var(--studio-border); }
+        .zc-pf-ad-res:hover { background:var(--studio-surface-soft); }
+        .zc-pf-ad-res img, .zc-pf-ad-res .ph, .zc-pf-ad-item img, .zc-pf-ad-item .ph { width:36px; height:36px; border-radius:8px; object-fit:cover; border:1px solid var(--studio-border); flex:none; background:var(--studio-surface-soft); }
+        .zc-pf-ad-res .m, .zc-pf-ad-item .m { min-width:0; flex:1; }
+        .zc-pf-ad-res .m b, .zc-pf-ad-item .m b { display:block; font-size:0.82rem; color:var(--studio-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .zc-pf-ad-res .m span, .zc-pf-ad-item .m span { font-size:0.72rem; color:var(--studio-muted); }
+        .zc-pf-ad-list { display:grid; gap:0.6rem; margin-top:0.9rem; max-width:34rem; }
+        .zc-pf-ad-item { display:flex; align-items:center; gap:0.7rem; padding:0.55rem 0.7rem; border:1px solid var(--studio-border); border-radius:11px; background:var(--studio-surface-soft); }
+        .zc-pf-ad-price { width:8rem; }
+        .zc-pf-ad-rm { border:none; background:none; color:#e0483a; cursor:pointer; font-size:1.1rem; line-height:1; padding:0.2rem; }
+        .zc-pf-ad-empty { color:var(--studio-muted); font-size:0.82rem; font-style:italic; padding:0.5rem 0; }
+
         .zc-pf-catadd { box-shadow:inset 0 1px 0 rgba(255,255,255,0.4), inset 0 -2px 4px rgba(0,0,0,0.12), 0 12px 24px -10px rgba(28,138,78,0.65); transition:transform .16s ease, box-shadow .16s ease, filter .16s ease; }
         .zc-pf-catadd:hover { transform:translateY(-2px) scale(1.04); filter:brightness(1.05); box-shadow:inset 0 1px 0 rgba(255,255,255,0.45), inset 0 -2px 4px rgba(0,0,0,0.12), 0 18px 32px -10px rgba(28,138,78,0.8); }
         .zc-pf-catadd:active { transform:translateY(0) scale(0.98); }
@@ -275,6 +291,19 @@
                         </tbody>
                     </table>
                 </div>
+            </section>
+
+            {{-- Add-ons: other products the customer can select alongside this one --}}
+            <section class="zc-op-panel p-5 zc-pf-card">
+                <h2 class="studio-section-title" style="text-align:left;">Add-ons</h2>
+                <p class="zc-pf-sub" style="text-align:left;margin-bottom:0.9rem;">Attach other products as optional add-ons — e.g. a Bedsheet with a Kulbalish Cover add-on. On the product page the customer can select this product <b>and</b> any add-ons together. Leave price blank to use the add-on's own price.</p>
+
+                <div class="zc-pf-ad-pick">
+                    <input type="text" class="studio-form-control" id="pf-addon-search" placeholder="Type product name or SKU…" autocomplete="off">
+                    <div class="zc-pf-ad-results" id="pf-addon-results"></div>
+                </div>
+                <div class="zc-pf-ad-list" id="pf-addon-list"></div>
+                <div class="zc-pf-ad-empty" id="pf-addon-empty">No add-ons yet.</div>
             </section>
 
             {{-- Product Images --}}
@@ -564,6 +593,72 @@
                 }
 
                 document.getElementById('zc-pf-form').addEventListener('submit', () => { descInput.value = editor.innerHTML; });
+            })();
+
+            // Add-ons picker
+            (() => {
+                const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+                const searchUrl = "{{ route('products.addons.search') }}";
+                const excludeId = {{ $isEdit ? $product->id : 0 }};
+                const search = document.getElementById('pf-addon-search'), results = document.getElementById('pf-addon-results');
+                const list = document.getElementById('pf-addon-list'), empty = document.getElementById('pf-addon-empty');
+                const esc = (s) => { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; };
+                let items = @json($existingAddons ?? []);
+
+                function render() {
+                    list.innerHTML = '';
+                    empty.style.display = items.length ? 'none' : 'block';
+                    items.forEach((it, idx) => {
+                        const row = document.createElement('div'); row.className = 'zc-pf-ad-item';
+                        const thumb = it.thumb ? `<img src="${esc(it.thumb)}" alt="">` : '<div class="ph"></div>';
+                        row.innerHTML = thumb +
+                            `<div class="m"><b>${esc(it.name)}</b><span>Own price: ৳${(+it.price).toLocaleString()}</span></div>` +
+                            `<input type="number" step="0.01" min="0" class="studio-form-control zc-pf-ad-price" placeholder="Custom ৳ (optional)" value="${it.custom_price != null ? it.custom_price : ''}" data-cp="${idx}">` +
+                            `<button type="button" class="zc-pf-ad-rm" data-rm="${idx}" title="Remove">✕</button>` +
+                            `<input type="hidden" name="addons[${idx}][product_id]" value="${it.id}">` +
+                            `<input type="hidden" name="addons[${idx}][custom_price]" value="${it.custom_price != null ? it.custom_price : ''}" data-cph="${idx}">`;
+                        list.appendChild(row);
+                    });
+                }
+                function add(p) {
+                    if (items.some((x) => x.id === p.id)) return;
+                    items.push({ id: p.id, name: p.name, sku: p.sku, price: p.price, custom_price: null, thumb: p.thumb });
+                    render();
+                }
+
+                let t;
+                search?.addEventListener('input', () => {
+                    clearTimeout(t); const q = search.value.trim();
+                    if (q.length < 1) { results.classList.remove('show'); results.innerHTML = ''; return; }
+                    t = setTimeout(() => {
+                        fetch(`${searchUrl}?q=${encodeURIComponent(q)}&exclude=${excludeId}`, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+                            .then((r) => r.json()).then((d) => {
+                                results.innerHTML = '';
+                                (d.results || []).forEach((p) => {
+                                    const el = document.createElement('div'); el.className = 'zc-pf-ad-res';
+                                    el.innerHTML = (p.thumb ? `<img src="${esc(p.thumb)}" alt="">` : '<div class="ph"></div>') +
+                                        `<div class="m"><b>${esc(p.name)}</b><span>SKU: ${esc(p.sku || '—')} · ৳${(+p.price).toLocaleString()}</span></div>`;
+                                    el.addEventListener('click', () => { add(p); results.classList.remove('show'); search.value = ''; search.focus(); });
+                                    results.appendChild(el);
+                                });
+                                results.classList.toggle('show', (d.results || []).length > 0);
+                            });
+                    }, 220);
+                });
+                document.addEventListener('click', (e) => {
+                    if (!e.target.closest('.zc-pf-ad-pick')) results?.classList.remove('show');
+                    const rm = e.target.closest('[data-rm]');
+                    if (rm) { items.splice(+rm.getAttribute('data-rm'), 1); render(); }
+                });
+                list?.addEventListener('input', (e) => {
+                    const cp = e.target.getAttribute('data-cp');
+                    if (cp === null) return;
+                    const v = e.target.value.trim();
+                    items[+cp].custom_price = v === '' ? null : v;
+                    const hidden = list.querySelector(`[data-cph="${cp}"]`);
+                    if (hidden) hidden.value = v;
+                });
+                render();
             })();
         </script>
     @endpush

@@ -125,6 +125,8 @@ class StorefrontService
                 'variants' => fn ($query) => $query->where('status', 'active')->where('show_on_storefront', true)->with('image'),
                 'category',
                 'brand',
+                'addons' => fn ($query) => $query->where('products.status', 'active'),
+                'addons.thumbnail',
             ])->findOrFail($product->id),
             CacheService::SHORT_TTL,
             [CacheKeyRegistry::STOREFRONT_PRODUCT_TAG]

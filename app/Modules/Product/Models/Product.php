@@ -134,6 +134,20 @@ class Product extends Model
             ->withTimestamps();
     }
 
+    /**
+     * Other products offered as selectable add-ons alongside this one (e.g. a
+     * Bedsheet offering a Kulbalish Cover add-on) — the customer can pick the
+     * base product AND any of its add-ons together. custom_price overrides
+     * the add-on's own price when set; otherwise its own price is used.
+     */
+    public function addons(): BelongsToMany
+    {
+        return $this->belongsToMany(Product::class, 'product_addons', 'product_id', 'addon_product_id')
+            ->withPivot(['custom_price', 'sort_order'])
+            ->withTimestamps()
+            ->orderBy('product_addons.sort_order');
+    }
+
     public function approvedReviews(): HasMany
     {
         return $this->reviews()->approved();

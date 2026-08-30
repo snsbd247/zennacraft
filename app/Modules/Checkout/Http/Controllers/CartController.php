@@ -81,7 +81,11 @@ class CartController extends Controller
     /**
      * Add several variants of a product in one request — powers the product
      * page's multi-select (order several colours/sizes together). Each variant
-     * keeps its own distinct SKU as a separate cart line.
+     * keeps its own distinct SKU as a separate cart line. An item may also
+     * carry its own product_id, overriding the top-level one — this is how
+     * the product page's "add-ons" (a genuinely different product, e.g. a
+     * Kulbalish Cover offered alongside a Bedsheet) ride along in the same
+     * request as their own cart line.
      */
     public function addMany(Request $request): RedirectResponse|JsonResponse
     {
@@ -89,6 +93,7 @@ class CartController extends Controller
             'product_id' => ['required', 'integer', 'exists:products,id'],
             'checkout' => ['nullable', 'boolean'],
             'items' => ['required', 'array', 'min:1', 'max:30'],
+            'items.*.product_id' => ['nullable', 'integer', 'exists:products,id'],
             'items.*.variant_id' => ['nullable', 'integer', 'exists:product_variants,id'],
             'items.*.quantity' => ['nullable', 'integer', 'min:1', 'max:99'],
         ]);
@@ -100,7 +105,7 @@ class CartController extends Controller
         foreach ($validated['items'] as $item) {
             try {
                 $this->cartService->add(
-                    $productId,
+                    isset($item['product_id']) ? (int) $item['product_id'] : $productId,
                     isset($item['variant_id']) ? (int) $item['variant_id'] : null,
                     (int) ($item['quantity'] ?? 1)
                 );
