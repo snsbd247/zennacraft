@@ -76,5 +76,4 @@
     @endif
 </section>
 
-@push('storefront-styles')<style>@media(max-width:820px){.zc-cart-layout{grid-template-columns:1fr !important;}}</style>@endpush
 @endsection

@@ -103,25 +103,8 @@
     </form>
 </section>
 
-@push('storefront-styles')<style>
-    @media(max-width:820px){.zc-checkout-layout{grid-template-columns:1fr !important;}}
-    /* Quantity stepper */
-    .zc-qstep{display:inline-flex;align-items:center;border:1.5px solid var(--line);border-radius:999px;overflow:hidden;background:var(--surface);}
-    .zc-qstep button{width:30px;height:30px;border:none;background:transparent;font-size:17px;font-weight:800;line-height:1;color:var(--leaf-deep);cursor:pointer;}
-    .zc-qstep button:hover{background:var(--leaf-soft);}
-    .zc-qstep button:disabled{opacity:.4;cursor:default;}
-    .zc-qstep span{min-width:30px;text-align:center;font-weight:800;font-size:14px;font-variant-numeric:tabular-nums;}
-    /* Place order button: continuous shimmer + click spinner */
-    #zc-place-btn{position:relative;overflow:hidden;}
-    #zc-place-btn::after{content:"";position:absolute;top:0;left:-60%;width:45%;height:100%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.38),transparent);transform:skewX(-18deg);animation:zc-place-shimmer 2.6s ease-in-out infinite;pointer-events:none;}
-    @keyframes zc-place-shimmer{0%{left:-60%}55%,100%{left:130%}}
-    #zc-place-btn.is-loading{pointer-events:none;opacity:.95;}
-    #zc-place-btn.is-loading::after{display:none;}
-    .zc-place-spin{display:none;width:16px;height:16px;border:2.5px solid rgba(255,255,255,.45);border-top-color:#fff;border-radius:50%;margin-left:9px;vertical-align:-3px;animation:zc-place-spin .7s linear infinite;}
-    #zc-place-btn.is-loading .zc-place-spin{display:inline-block;}
-    @keyframes zc-place-spin{to{transform:rotate(360deg)}}
-    @media(prefers-reduced-motion:reduce){#zc-place-btn::after{display:none;}}
-</style>@endpush
+{{-- .zc-checkout-layout / .zc-qstep / #zc-place-btn CSS moved to
+     public/assets/storefront.css. --}}
 @push('storefront-scripts')
 <script>
 (function(){

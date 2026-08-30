@@ -253,61 +253,6 @@
 
 @endsection
 
-@push('storefront-styles')
-<style>
-    .zc-hero__main{overflow:hidden;}
-    .zc-hero__track{display:flex;width:100%;height:100%;transition:transform .55s cubic-bezier(.4,0,.2,1);}
-    .zc-hero__slide{min-width:100%;flex:0 0 100%;}
-    .zc-hero__arrow{position:absolute;top:50%;transform:translateY(-50%);z-index:5;width:42px;height:42px;border-radius:50%;border:1px solid rgba(255,255,255,.32);background:rgba(9,20,13,.42);color:#fff;font-size:1.5rem;line-height:1;cursor:pointer;display:grid;place-items:center;backdrop-filter:blur(4px);transition:background .18s,color .18s,border-color .18s;}
-    .zc-hero__arrow:hover{background:var(--honey);color:#3a2600;border-color:transparent;}
-    .zc-hero__arrow--prev{left:16px;}
-    .zc-hero__arrow--next{right:16px;}
-    .zc-hero__dots{position:absolute;bottom:16px;left:0;right:0;z-index:5;display:flex;justify-content:center;gap:7px;}
-    .zc-hero__dot{width:8px;height:8px;border-radius:999px;border:none;background:rgba(255,255,255,.5);cursor:pointer;padding:0;transition:width .22s,background .22s;}
-    .zc-hero__dot.is-active{width:24px;background:var(--honey);}
-    @media(max-width:820px){.zc-hero__arrow{display:none;}}
-</style>
-@endpush
-
-@push('storefront-scripts')
-<script>
-    (function () {
-        var hero = document.querySelector('[data-hero]');
-        if (!hero) return;
-        var track = hero.querySelector('[data-hero-track]');
-        var slides = track ? track.children : [];
-        if (slides.length < 2) return;
-        var dots = hero.querySelectorAll('[data-hero-dot]');
-        var idx = 0, timer = null;
-        function go(i) {
-            idx = (i + slides.length) % slides.length;
-            track.style.transform = 'translateX(-' + (idx * 100) + '%)';
-            dots.forEach(function (d, n) { d.classList.toggle('is-active', n === idx); });
-        }
-        function start() { timer = setInterval(function () { go(idx + 1); }, 6000); }
-        function reset() { clearInterval(timer); start(); }
-        var next = hero.querySelector('[data-hero-next]');
-        var prev = hero.querySelector('[data-hero-prev]');
-        if (next) next.addEventListener('click', function () { go(idx + 1); reset(); });
-        if (prev) prev.addEventListener('click', function () { go(idx - 1); reset(); });
-        dots.forEach(function (d, n) { d.addEventListener('click', function () { go(n); reset(); }); });
-        hero.addEventListener('mouseenter', function () { clearInterval(timer); });
-        hero.addEventListener('mouseleave', start);
-
-        // Manual swipe (touch) — change slides by dragging left/right on mobile.
-        var startX = null, startY = null;
-        track.addEventListener('touchstart', function (e) { startX = e.touches[0].clientX; startY = e.touches[0].clientY; clearInterval(timer); }, { passive: true });
-        track.addEventListener('touchend', function (e) {
-            if (startX === null) { start(); return; }
-            var dx = e.changedTouches[0].clientX - startX;
-            var dy = e.changedTouches[0].clientY - startY;
-            // Only treat as a swipe if it's clearly horizontal.
-            if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) { go(idx + (dx < 0 ? 1 : -1)); }
-            startX = startY = null;
-            reset();
-        }, { passive: true });
-
-        start();
-    })();
-</script>
-@endpush
+{{-- Hero carousel CSS/JS moved to public/assets/storefront.css / .js (linked
+     once from layouts/app.blade.php) — see there for the [data-hero] rules
+     and behavior. --}}

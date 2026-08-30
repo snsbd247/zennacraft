@@ -250,3 +250,44 @@ document.addEventListener('DOMContentLoaded', function () {
 
     setTimeout(function () { pop.removeAttribute('hidden'); pop.classList.add('is-open'); }, 900);
 });
+
+// ---- Homepage hero carousel (resources/views/storefront/home.blade.php) ----
+// Guarded on [data-hero] existing, so this is a safe no-op on every other page.
+(function () {
+    var hero = document.querySelector('[data-hero]');
+    if (!hero) return;
+    var track = hero.querySelector('[data-hero-track]');
+    var slides = track ? track.children : [];
+    if (slides.length < 2) return;
+    var dots = hero.querySelectorAll('[data-hero-dot]');
+    var idx = 0, timer = null;
+    function go(i) {
+        idx = (i + slides.length) % slides.length;
+        track.style.transform = 'translateX(-' + (idx * 100) + '%)';
+        dots.forEach(function (d, n) { d.classList.toggle('is-active', n === idx); });
+    }
+    function start() { timer = setInterval(function () { go(idx + 1); }, 6000); }
+    function reset() { clearInterval(timer); start(); }
+    var next = hero.querySelector('[data-hero-next]');
+    var prev = hero.querySelector('[data-hero-prev]');
+    if (next) next.addEventListener('click', function () { go(idx + 1); reset(); });
+    if (prev) prev.addEventListener('click', function () { go(idx - 1); reset(); });
+    dots.forEach(function (d, n) { d.addEventListener('click', function () { go(n); reset(); }); });
+    hero.addEventListener('mouseenter', function () { clearInterval(timer); });
+    hero.addEventListener('mouseleave', start);
+
+    // Manual swipe (touch) — change slides by dragging left/right on mobile.
+    var startX = null, startY = null;
+    track.addEventListener('touchstart', function (e) { startX = e.touches[0].clientX; startY = e.touches[0].clientY; clearInterval(timer); }, { passive: true });
+    track.addEventListener('touchend', function (e) {
+        if (startX === null) { start(); return; }
+        var dx = e.changedTouches[0].clientX - startX;
+        var dy = e.changedTouches[0].clientY - startY;
+        // Only treat as a swipe if it's clearly horizontal.
+        if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) { go(idx + (dx < 0 ? 1 : -1)); }
+        startX = startY = null;
+        reset();
+    }, { passive: true });
+
+    start();
+})();
