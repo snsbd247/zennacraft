@@ -136,7 +136,13 @@ class UpdateService
             }
 
             $this->step($deployment, 'composer', 'info', 'Running composer install...');
-            $composerResult = $this->run([$this->composerBinary(), 'install', '--no-dev', '--optimize-autoloader', '--no-interaction'], timeout: 240);
+            // Composer's own shebang resolves to whatever "php" means on
+            // this host's PATH, which turned out to be an older CLI default
+            // (8.2) than the app requires (8.3) — its platform_check then
+            // refuses to install. Running it explicitly through PHP_BINARY
+            // (the interpreter currently executing this app) sidesteps that
+            // entirely, regardless of what the bare "php" resolves to.
+            $composerResult = $this->run([PHP_BINARY, $this->composerBinary(), 'install', '--no-dev', '--optimize-autoloader', '--no-interaction'], timeout: 240);
             $deployment->update(['composer_ran' => $composerResult->successful()]);
             $this->step($deployment, 'composer', $composerResult->successful() ? 'info' : 'warning', $composerResult->successful()
                 ? 'composer install completed.'
