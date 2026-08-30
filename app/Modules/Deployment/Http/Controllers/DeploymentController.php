@@ -57,6 +57,13 @@ class DeploymentController extends Controller
         return back()->with('success', $message);
     }
 
+    public function clearHistory(): RedirectResponse
+    {
+        $count = $this->updateService->clearHistory();
+
+        return back()->with('success', $count > 0 ? "Cleared {$count} deployment record(s)." : 'No finished deployments to clear.');
+    }
+
     /** Polled by the progress bar on the Studio page while a run is in flight. */
     public function status(DeploymentRun $run): JsonResponse
     {

@@ -87,6 +87,17 @@ class UpdateService
     }
 
     /**
+     * Deliberately leaves pending/running rows alone — clearing history
+     * while a deploy is in flight must never orphan the run the progress
+     * bar is actively polling. deployment_logs cascade-delete with their
+     * parent run.
+     */
+    public function clearHistory(): int
+    {
+        return DeploymentRun::whereIn('status', ['completed', 'failed'])->delete();
+    }
+
+    /**
      * A fast, synchronous DB insert — created before the job is dispatched
      * so the Studio page has a run id to poll immediately, rather than
      * waiting for the queue worker (up to ~60s on this cron-driven setup)

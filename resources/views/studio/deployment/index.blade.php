@@ -104,7 +104,15 @@
     </div>
 
     <div class="zc-dp-card">
-        <h3>Deployment history</h3>
+        <div class="zc-dp-head" style="margin-bottom:0.9rem;">
+            <h3 style="margin:0;">Deployment history</h3>
+            @if ($history->total() > 0)
+                <form method="POST" action="{{ route('deployment.history.clear') }}" onsubmit="return confirm('Clear all finished deployment history? This cannot be undone.');">
+                    @csrf @method('DELETE')
+                    <button type="submit" class="studio-command-button" style="font-size:0.78rem;padding:0.4rem 0.85rem;">Clear History</button>
+                </form>
+            @endif
+        </div>
         <div class="studio-responsive-scroll">
         <table class="zc-dp-tbl">
             <thead><tr><th>#</th><th>Status</th><th>Commits</th><th>Migrations</th><th>By</th><th>When</th></tr></thead>

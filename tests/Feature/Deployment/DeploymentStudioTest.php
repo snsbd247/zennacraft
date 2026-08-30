@@ -93,4 +93,25 @@ class DeploymentStudioTest extends TestCase
         $response = $this->actingAs($owner, 'staff')->getJson(route('deployment.check'))->assertOk();
         $response->assertJson(['checked' => false]);
     }
+
+    public function test_clear_history_removes_finished_runs_but_keeps_in_flight_ones(): void
+    {
+        $owner = $this->owner();
+        $completed = DeploymentRun::create(['status' => 'completed']);
+        $failed = DeploymentRun::create(['status' => 'failed']);
+        $running = DeploymentRun::create(['status' => 'running']);
+
+        $this->actingAs($owner, 'staff')->delete(route('deployment.history.clear'))->assertRedirect();
+
+        $this->assertModelMissing($completed);
+        $this->assertModelMissing($failed);
+        $this->assertModelExists($running);
+    }
+
+    public function test_manager_cannot_clear_history(): void
+    {
+        $manager = $this->manager();
+
+        $this->actingAs($manager, 'staff')->delete(route('deployment.history.clear'))->assertForbidden();
+    }
 }

@@ -244,7 +244,10 @@ Route::prefix($adminPath)->group(function () {
             Route::get('deployment/check', [\App\Modules\Deployment\Http\Controllers\DeploymentController::class, 'checkUpdates'])->name('deployment.check');
             Route::get('deployment/{run}/status', [\App\Modules\Deployment\Http\Controllers\DeploymentController::class, 'status'])->name('deployment.status');
         });
-        Route::middleware(['permission:deployment.run'])->post('deployment/run', [\App\Modules\Deployment\Http\Controllers\DeploymentController::class, 'runNow'])->name('deployment.run');
+        Route::middleware(['permission:deployment.run'])->group(function () {
+            Route::post('deployment/run', [\App\Modules\Deployment\Http\Controllers\DeploymentController::class, 'runNow'])->name('deployment.run');
+            Route::delete('deployment/history', [\App\Modules\Deployment\Http\Controllers\DeploymentController::class, 'clearHistory'])->name('deployment.history.clear');
+        });
 
         // --- Sliders (storefront homepage banners; one page per placement) ---
         $sliderPlacements = ['hero' => 'home_hero', 'side' => 'home_side', 'promo' => 'home_promo'];
