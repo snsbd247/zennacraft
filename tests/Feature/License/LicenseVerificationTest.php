@@ -48,7 +48,7 @@ class LicenseVerificationTest extends TestCase
             'license.server' => 'https://license.test/api/v1',
             'license.product_slug' => 'ecommerce1',
             'license.public_key_pem' => $this->publicKeyPem,
-            'license.verify_cache_hours' => 6,
+            'license.verify_cache_minutes' => 360,
             'license.offline_trust_days' => 5,
         ]);
     }

@@ -119,8 +119,8 @@ class LicenseService
             return $this->result('unactivated', true, 'No license key has been activated on this installation yet.');
         }
 
-        $staleAfter = (int) config('license.verify_cache_hours', 6);
-        $isStale = ! $state->last_checked_at || $state->last_checked_at->lt(now()->subHours($staleAfter));
+        $staleAfter = (int) config('license.verify_cache_minutes', 15);
+        $isStale = ! $state->last_checked_at || $state->last_checked_at->lt(now()->subMinutes($staleAfter));
 
         // last_checked_at only ever advances on a SUCCESSFUL check (see
         // markCheckFailed) so the offline-trust window below means what it
@@ -229,8 +229,8 @@ class LicenseService
             return ['ok' => false, 'message' => 'No license key to verify.'];
         }
 
-        $staleAfter = (int) config('license.verify_cache_hours', 6);
-        if (! $force && $state->last_checked_at && $state->last_checked_at->gt(now()->subHours($staleAfter))) {
+        $staleAfter = (int) config('license.verify_cache_minutes', 15);
+        if (! $force && $state->last_checked_at && $state->last_checked_at->gt(now()->subMinutes($staleAfter))) {
             return ['ok' => true, 'message' => 'Using the cached license status.'];
         }
 

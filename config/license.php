@@ -27,7 +27,12 @@ PEM),
 
     // Cache window for verify() — how long a "still valid" result is
     // trusted before the next boot/login triggers a fresh server check.
-    'verify_cache_hours' => (int) env('LICENSE_VERIFY_CACHE_HOURS', 6),
+    // Minutes, not hours: this is the enforcement lag for a support
+    // suspension/expiry — 6 hours (the old default) meant a suspended
+    // license could keep showing "Active" in Studio for up to 6 hours
+    // after being suspended server-side. 15 minutes keeps that window
+    // tight without hitting the license server on every page load.
+    'verify_cache_minutes' => (int) env('LICENSE_VERIFY_CACHE_MINUTES', 15),
 
     // Grace window after expiry (server-side "grace" status) — informational
     // only, the server is authoritative; used for the local fallback below.
