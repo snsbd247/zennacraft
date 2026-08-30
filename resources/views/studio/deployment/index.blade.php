@@ -25,6 +25,16 @@
     .zc-dp-health__label{font-weight:700;font-size:0.83rem;}
     .zc-dp-health__value{font-size:0.76rem;color:var(--studio-muted);}
     .zc-dp-hint{font-size:0.75rem;color:var(--studio-muted);margin-top:6px;}
+    .zc-dp-progress{display:none;margin-top:1rem;}
+    .zc-dp-progress.show{display:block;}
+    .zc-dp-progress__track{height:10px;border-radius:999px;background:var(--studio-surface-soft);border:1px solid var(--studio-border);overflow:hidden;}
+    .zc-dp-progress__fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--studio-accent),color-mix(in srgb,var(--studio-accent) 60%,#1c8a4e));transition:width .4s ease;width:0%;}
+    .zc-dp-progress__fill.is-failed{background:#c0392b;}
+    .zc-dp-progress__meta{display:flex;justify-content:space-between;align-items:baseline;margin-top:0.5rem;font-size:0.82rem;}
+    .zc-dp-progress__pct{font-weight:800;color:var(--studio-text);font-variant-numeric:tabular-nums;}
+    .zc-dp-progress__msg{color:var(--studio-muted);}
+    .zc-dp-progress__done{color:#1c8a4e;font-weight:700;}
+    .zc-dp-progress__fail{color:#c0392b;font-weight:700;}
 </style>
 @endpush
 @section('content')
@@ -59,11 +69,19 @@
                         <li><code>{{ $commit['hash'] }}</code> <span>{{ $commit['message'] }}</span></li>
                     @endforeach
                 </ul>
-                <form method="POST" action="{{ route('deployment.run') }}" style="margin-top:1rem;" onsubmit="return confirm('Pull and deploy the latest code now? This backs up the database, runs migrations, and rebuilds caches.');">
+                <form data-update-form style="margin-top:1rem;">
                     @csrf
-                    <button type="submit" class="studio-command-button studio-command-button--primary">Update Now</button>
+                    <button type="submit" class="studio-command-button studio-command-button--primary" data-update-submit>Update Now</button>
                 </form>
                 <p class="zc-dp-hint">Backs up the database, pulls from GitHub, runs <code>composer install</code> and migrations, then rebuilds caches — all in the background.</p>
+
+                <div class="zc-dp-progress" data-update-progress>
+                    <div class="zc-dp-progress__track"><div class="zc-dp-progress__fill" data-progress-fill></div></div>
+                    <div class="zc-dp-progress__meta">
+                        <span class="zc-dp-progress__msg" data-progress-msg>Starting…</span>
+                        <span class="zc-dp-progress__pct" data-progress-pct>0%</span>
+                    </div>
+                </div>
             @else
                 <p class="zc-dp-hint">Nothing to deploy right now.</p>
             @endif
@@ -111,4 +129,79 @@
         </div>
     </div>
 </div>
+
+@push('studio-scripts')
+<script>
+(function () {
+    var form = document.querySelector('[data-update-form]');
+    if (!form) return;
+
+    var csrf = document.querySelector('meta[name="csrf-token"]').content;
+    var submitBtn = document.querySelector('[data-update-submit]');
+    var progress = document.querySelector('[data-update-progress]');
+    var fill = document.querySelector('[data-progress-fill]');
+    var pct = document.querySelector('[data-progress-pct]');
+    var msg = document.querySelector('[data-progress-msg]');
+    var poller = null;
+
+    function setBar(percent, failed) {
+        fill.style.width = Math.max(0, Math.min(100, percent)) + '%';
+        fill.classList.toggle('is-failed', !!failed);
+        pct.textContent = percent + '%';
+    }
+
+    function poll(runId) {
+        fetch('{{ url("studio/deployment") }}/' + runId + '/status', {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                setBar(d.progress || 0, d.status === 'failed');
+                msg.textContent = d.message || '…';
+
+                if (d.status === 'completed') {
+                    clearInterval(poller);
+                    setBar(100, false);
+                    msg.innerHTML = '<span class="zc-dp-progress__done">Update complete — reloading…</span>';
+                    setTimeout(function () { window.location.reload(); }, 1200);
+                } else if (d.status === 'failed') {
+                    clearInterval(poller);
+                    msg.innerHTML = '<span class="zc-dp-progress__fail">Update failed: ' + (d.error_message || 'unknown error') + '</span>';
+                    submitBtn.disabled = false;
+                }
+            })
+            .catch(function () { /* transient network hiccup — next tick retries */ });
+    }
+
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        if (!confirm('Pull and deploy the latest code now? This backs up the database, runs migrations, and rebuilds caches.')) return;
+
+        submitBtn.disabled = true;
+        progress.classList.add('show');
+        setBar(0, false);
+        msg.textContent = 'Starting…';
+
+        fetch('{{ route('deployment.run') }}', {
+            method: 'POST',
+            headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf, 'X-Requested-With': 'XMLHttpRequest' },
+        })
+            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+            .then(function (res) {
+                if (!res.ok || !res.d.run_id) {
+                    msg.innerHTML = '<span class="zc-dp-progress__fail">' + (res.d.message || 'Could not start the update.') + '</span>';
+                    submitBtn.disabled = false;
+                    return;
+                }
+                poller = setInterval(function () { poll(res.d.run_id); }, 2000);
+                poll(res.d.run_id);
+            })
+            .catch(function () {
+                msg.innerHTML = '<span class="zc-dp-progress__fail">Could not reach the server.</span>';
+                submitBtn.disabled = false;
+            });
+    });
+})();
+</script>
+@endpush
 @endsection

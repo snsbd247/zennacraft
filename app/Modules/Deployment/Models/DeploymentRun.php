@@ -11,6 +11,7 @@ class DeploymentRun extends Model
 {
     protected $fillable = [
         'status',
+        'progress',
         'from_commit',
         'to_commit',
         'commits_pulled',
@@ -24,6 +25,7 @@ class DeploymentRun extends Model
     ];
 
     protected $casts = [
+        'progress' => 'integer',
         'commits_pulled' => 'integer',
         'migrations_ran' => 'boolean',
         'composer_ran' => 'boolean',

@@ -242,6 +242,7 @@ Route::prefix($adminPath)->group(function () {
         Route::middleware(['permission:deployment.view'])->group(function () {
             Route::get('deployment', [\App\Modules\Deployment\Http\Controllers\DeploymentController::class, 'index'])->name('deployment.index');
             Route::get('deployment/check', [\App\Modules\Deployment\Http\Controllers\DeploymentController::class, 'checkUpdates'])->name('deployment.check');
+            Route::get('deployment/{run}/status', [\App\Modules\Deployment\Http\Controllers\DeploymentController::class, 'status'])->name('deployment.status');
         });
         Route::middleware(['permission:deployment.run'])->post('deployment/run', [\App\Modules\Deployment\Http\Controllers\DeploymentController::class, 'runNow'])->name('deployment.run');
 

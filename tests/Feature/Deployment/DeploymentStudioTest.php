@@ -5,6 +5,7 @@ namespace Tests\Feature\Deployment;
 use App\Modules\AdminAuth\Models\Role;
 use App\Modules\AdminAuth\Models\StaffUser;
 use App\Modules\Deployment\Jobs\RunUpdateJob;
+use App\Modules\Deployment\Models\DeploymentRun;
 use Database\Seeders\PermissionsSeeder;
 use Database\Seeders\RolesPermissionSeeder;
 use Database\Seeders\RolesSeeder;
@@ -56,15 +57,31 @@ class DeploymentStudioTest extends TestCase
         $this->actingAs($manager, 'staff')->post(route('deployment.run'))->assertForbidden();
     }
 
-    public function test_run_now_dispatches_the_update_job_for_the_owner(): void
+    public function test_run_now_creates_a_pending_run_and_dispatches_the_update_job(): void
     {
         Queue::fake();
         $owner = $this->owner();
 
-        $this->actingAs($owner, 'staff')->postJson(route('deployment.run'))
+        $response = $this->actingAs($owner, 'staff')->postJson(route('deployment.run'))
             ->assertOk()->assertJson(['success' => true]);
 
-        Queue::assertPushed(RunUpdateJob::class);
+        $runId = $response->json('run_id');
+        $this->assertNotNull($runId);
+        $this->assertSame('pending', DeploymentRun::findOrFail($runId)->status);
+
+        Queue::assertPushed(RunUpdateJob::class, function ($job) use ($runId) {
+            return $job->deploymentRun->id === $runId;
+        });
+    }
+
+    public function test_status_endpoint_reports_progress_for_the_owner(): void
+    {
+        $owner = $this->owner();
+        $run = DeploymentRun::create(['status' => 'running', 'progress' => 45, 'from_commit' => 'abc123']);
+
+        $this->actingAs($owner, 'staff')->getJson(route('deployment.status', $run))
+            ->assertOk()
+            ->assertJson(['id' => $run->id, 'status' => 'running', 'progress' => 45]);
     }
 
     public function test_check_updates_reports_not_a_git_repository_outside_a_real_repo(): void

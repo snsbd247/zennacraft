@@ -2,6 +2,7 @@
 
 namespace App\Modules\Deployment\Jobs;
 
+use App\Modules\Deployment\Models\DeploymentRun;
 use App\Modules\Deployment\Services\UpdateService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -21,10 +22,10 @@ class RunUpdateJob implements ShouldQueue
 
     public int $timeout = 600;
 
-    public function __construct(private ?int $staffId = null) {}
+    public function __construct(public DeploymentRun $deploymentRun) {}
 
     public function handle(UpdateService $service): void
     {
-        $service->runUpdate($this->staffId);
+        $service->runUpdate($this->deploymentRun);
     }
 }

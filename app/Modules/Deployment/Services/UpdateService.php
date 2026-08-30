@@ -86,22 +86,33 @@ class UpdateService
         return DeploymentRun::with(['createdBy', 'logs'])->latest('created_at')->paginate($perPage);
     }
 
-    public function runUpdate(?int $staffId = null): DeploymentRun
+    /**
+     * A fast, synchronous DB insert — created before the job is dispatched
+     * so the Studio page has a run id to poll immediately, rather than
+     * waiting for the queue worker (up to ~60s on this cron-driven setup)
+     * to pick up the job before any progress is visible at all.
+     */
+    public function createPendingRun(?int $staffId = null): DeploymentRun
     {
-        $branch = $this->currentBranch();
-
-        $deployment = DeploymentRun::create([
-            'status' => 'running',
+        return DeploymentRun::create([
+            'status' => 'pending',
             'from_commit' => $this->currentCommit(),
             'created_by' => $staffId,
-            'started_at' => now(),
         ]);
+    }
+
+    public function runUpdate(DeploymentRun $deployment): DeploymentRun
+    {
+        $branch = $this->currentBranch();
+        $deployment->update(['status' => 'running', 'started_at' => now()]);
 
         try {
             // Local drift (e.g. a hosting-panel-edited .htaccess) must not
             // block a pull — stash it, pull, then best-effort restore it.
             $status = $this->run(['git', 'status', '--porcelain']);
             $dirty = trim($status->output()) !== '';
+
+            $deployment->update(['progress' => 5]);
 
             if ($dirty) {
                 $this->step($deployment, 'stash', 'info', 'Local changes detected — stashing before pull.');
@@ -110,6 +121,7 @@ class UpdateService
 
             $this->step($deployment, 'pull', 'info', "Pulling origin/{$branch}...");
             $this->runOrFail($deployment, 'pull', ['git', 'pull', 'origin', $branch]);
+            $deployment->update(['progress' => 25]);
 
             if ($dirty) {
                 $popResult = $this->run(['git', 'stash', 'pop']);
@@ -130,7 +142,7 @@ class UpdateService
 
             if ($commitsPulled === 0) {
                 $this->step($deployment, 'pull', 'info', 'Already up to date — nothing to deploy.');
-                $deployment->update(['status' => 'completed', 'completed_at' => now()]);
+                $deployment->update(['status' => 'completed', 'progress' => 100, 'completed_at' => now()]);
 
                 return $deployment->refresh();
             }
@@ -147,13 +159,15 @@ class UpdateService
             $this->step($deployment, 'composer', $composerResult->successful() ? 'info' : 'warning', $composerResult->successful()
                 ? 'composer install completed.'
                 : 'composer install had a problem: '.trim($composerResult->errorOutput()));
+            $deployment->update(['progress' => 55]);
 
             $this->step($deployment, 'migrate', 'info', 'Backing up the database before migrating...');
             $this->backupService->createManualBackup(['database']);
+            $deployment->update(['progress' => 65]);
 
             $this->step($deployment, 'migrate', 'info', 'Running migrations...');
             Artisan::call('migrate', ['--force' => true]);
-            $deployment->update(['migrations_ran' => true]);
+            $deployment->update(['migrations_ran' => true, 'progress' => 85]);
             $this->step($deployment, 'migrate', 'info', trim(Artisan::output()) ?: 'No pending migrations.');
 
             $this->step($deployment, 'cache', 'info', 'Rebuilding caches...');
@@ -164,7 +178,7 @@ class UpdateService
             // route:cache is deliberately never run here — see class docblock.
             $this->step($deployment, 'cache', 'info', 'Caches rebuilt.');
 
-            $deployment->update(['status' => 'completed', 'completed_at' => now()]);
+            $deployment->update(['status' => 'completed', 'progress' => 100, 'completed_at' => now()]);
 
             return $deployment->refresh();
         } catch (Throwable $exception) {
