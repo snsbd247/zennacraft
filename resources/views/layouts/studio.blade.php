@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{!! trim($__env->yieldContent('title')) !== '' ? trim($__env->yieldContent('title')) : 'Zenna Studio' !!}</title>
+    @php $studioFaviconUrl = app(\App\Modules\Theme\Services\ThemeService::class)->mediaUrl('site_favicon'); @endphp
+    <link rel="icon" href="{{ $studioFaviconUrl ?: asset('favicon.ico') }}">
     @include('studio.partials.design-system')
     @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
         @vite(['resources/css/app.css', 'resources/js/app.js'])
