@@ -237,6 +237,8 @@ Route::prefix($adminPath)->group(function () {
         Route::middleware(['permission:backup.create'])->group(function () {
             Route::put('backups/settings', [\App\Modules\Backup\Http\Controllers\BackupController::class, 'updateSettings'])->name('backups.settings.update');
             Route::post('backups/run', [\App\Modules\Backup\Http\Controllers\BackupController::class, 'runNow'])->name('backups.run');
+            Route::get('backups/dropbox/connect', [\App\Modules\Backup\Http\Controllers\BackupController::class, 'dropboxConnect'])->name('backups.dropbox.connect');
+            Route::get('backups/dropbox/callback', [\App\Modules\Backup\Http\Controllers\BackupController::class, 'dropboxCallback'])->name('backups.dropbox.callback');
         });
 
         // --- Update System (git pull + composer install + migrate) ---

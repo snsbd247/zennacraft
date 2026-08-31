@@ -37,7 +37,7 @@ class BackupStudioTest extends TestCase
             ->assertSee('Automatic daily backup');
     }
 
-    public function test_settings_can_be_saved_and_the_token_is_stored_encrypted(): void
+    public function test_settings_can_be_saved_and_the_app_secret_is_stored_encrypted(): void
     {
         $owner = $this->owner();
 
@@ -46,7 +46,8 @@ class BackupStudioTest extends TestCase
             'schedule_time' => '04:30',
             'local_retention_days' => 5,
             'dropbox_retention_days' => 20,
-            'dropbox_token' => 'test-secret-token',
+            'dropbox_app_key' => 'test-app-key',
+            'dropbox_app_secret' => 'test-app-secret',
         ])->assertRedirect();
 
         $service = app(\App\Modules\Backup\Services\BackupService::class);
@@ -54,20 +55,25 @@ class BackupStudioTest extends TestCase
         $this->assertSame('04:30', $service->scheduleTime());
         $this->assertSame(5, $service->localRetentionDays());
         $this->assertSame(20, $service->dropboxRetentionDays());
-        $this->assertSame('test-secret-token', $service->dropboxToken());
+        $this->assertSame('test-app-key', $service->dropboxAppKey());
+        $this->assertSame('test-app-secret', $service->dropboxAppSecret());
 
         // Never stored in plaintext in the DB.
-        $raw = \App\Modules\Settings\Models\Setting::where('setting_group', 'backup')->where('setting_key', 'dropbox_token')->first();
+        $raw = \App\Modules\Settings\Models\Setting::where('setting_group', 'backup')->where('setting_key', 'dropbox_app_secret')->first();
         $this->assertNotNull($raw);
-        $this->assertStringNotContainsString('test-secret-token', (string) $raw->value);
+        $this->assertStringNotContainsString('test-app-secret', (string) $raw->value);
     }
 
     public function test_run_now_creates_a_backup_and_uploads_to_dropbox_when_configured(): void
     {
         $owner = $this->owner();
-        app(\App\Modules\Backup\Services\BackupService::class)->updateSettings(['dropbox_token' => 'fake-token']);
+        $service = app(\App\Modules\Backup\Services\BackupService::class);
+        $service->updateSettings(['dropbox_app_key' => 'app-key', 'dropbox_app_secret' => 'app-secret']);
+        app(\App\Modules\Settings\Services\SettingService::class)->setEncrypted('backup', 'dropbox_refresh_token', 'fake-refresh-token');
+        \Illuminate\Support\Facades\Cache::forget('backup:dropbox_access_token');
 
         Http::fake([
+            'https://api.dropbox.com/oauth2/token' => Http::response(['access_token' => 'fake-access-token', 'expires_in' => 14400], 200),
             'https://content.dropboxapi.com/*' => Http::response(['name' => 'ok'], 200),
             'https://api.dropboxapi.com/*' => Http::response(['entries' => []], 200),
         ]);

@@ -6,10 +6,12 @@ use App\Modules\Backup\Models\BackupLog;
 use App\Modules\Backup\Models\BackupRun;
 use App\Modules\Settings\Services\SettingService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use RuntimeException;
 use Throwable;
 use ZipArchive;
 
@@ -43,16 +45,43 @@ class BackupService
         return max(1, (int) $this->settings->get('backup', 'dropbox_retention_days', 30));
     }
 
-    public function dropboxToken(): ?string
+    /**
+     * The old single-token field — a Dropbox App Console "generated" access
+     * token, which expires after a few hours with no way to renew it. Kept
+     * only so an old value doesn't linger as a false "configured" signal;
+     * the app key/secret + refresh token below are what's actually used now.
+     */
+    public function dropboxAppKey(): ?string
     {
-        $token = $this->settings->getEncrypted('backup', 'dropbox_token');
+        $key = $this->settings->get('backup', 'dropbox_app_key');
+
+        return filled($key) ? (string) $key : null;
+    }
+
+    public function dropboxAppSecret(): ?string
+    {
+        $secret = $this->settings->getEncrypted('backup', 'dropbox_app_secret');
+
+        return $secret !== null && $secret !== '' ? (string) $secret : null;
+    }
+
+    public function dropboxRefreshToken(): ?string
+    {
+        $token = $this->settings->getEncrypted('backup', 'dropbox_refresh_token');
 
         return $token !== null && $token !== '' ? (string) $token : null;
     }
 
+    /**
+     * True once the one-time "Connect Dropbox" flow has produced a refresh
+     * token — from here on a fresh short-lived access token is minted
+     * automatically for every upload, so this never silently expires again.
+     */
     public function hasDropboxConfigured(): bool
     {
-        return $this->dropboxToken() !== null;
+        return $this->dropboxAppKey() !== null
+            && $this->dropboxAppSecret() !== null
+            && $this->dropboxRefreshToken() !== null;
     }
 
     public function updateSettings(array $data): void
@@ -62,9 +91,73 @@ class BackupService
         $this->settings->set('backup', 'local_retention_days', (string) max(1, (int) ($data['local_retention_days'] ?? 7)), 'integer');
         $this->settings->set('backup', 'dropbox_retention_days', (string) max(1, (int) ($data['dropbox_retention_days'] ?? 30)), 'integer');
 
-        if (! empty($data['dropbox_token'])) {
-            $this->settings->setEncrypted('backup', 'dropbox_token', $data['dropbox_token']);
+        if (filled($data['dropbox_app_key'] ?? null)) {
+            $this->settings->set('backup', 'dropbox_app_key', trim((string) $data['dropbox_app_key']));
         }
+
+        if (filled($data['dropbox_app_secret'] ?? null)) {
+            $this->settings->setEncrypted('backup', 'dropbox_app_secret', trim((string) $data['dropbox_app_secret']));
+        }
+    }
+
+    /**
+     * Step 2 of the "Connect Dropbox" flow: trades the authorization code
+     * Dropbox just redirected back with for a refresh token, which is what
+     * makes every future access-token mint automatic and permanent.
+     */
+    public function connectDropbox(string $code, string $redirectUri): void
+    {
+        $appKey = $this->dropboxAppKey();
+        $appSecret = $this->dropboxAppSecret();
+
+        if (! $appKey || ! $appSecret) {
+            throw new RuntimeException('Save the Dropbox App key and App secret first.');
+        }
+
+        $response = Http::asForm()->post('https://api.dropbox.com/oauth2/token', [
+            'code' => $code,
+            'grant_type' => 'authorization_code',
+            'client_id' => $appKey,
+            'client_secret' => $appSecret,
+            'redirect_uri' => $redirectUri,
+        ]);
+
+        $refreshToken = $response->json('refresh_token');
+
+        if (! $response->successful() || ! $refreshToken) {
+            throw new RuntimeException((string) ($response->json('error_description') ?: $response->body()));
+        }
+
+        $this->settings->setEncrypted('backup', 'dropbox_refresh_token', $refreshToken);
+        Cache::forget('backup:dropbox_access_token');
+    }
+
+    /**
+     * A Dropbox access token minted via the refresh token only lives ~4
+     * hours, so it's fetched fresh (and cached a little under that) rather
+     * than stored — the whole point of the refresh-token flow is that this
+     * never needs a human to intervene again.
+     */
+    protected function dropboxAccessToken(): ?string
+    {
+        if (! $this->hasDropboxConfigured()) {
+            return null;
+        }
+
+        return Cache::remember('backup:dropbox_access_token', now()->addMinutes(200), function () {
+            $response = Http::asForm()->post('https://api.dropbox.com/oauth2/token', [
+                'grant_type' => 'refresh_token',
+                'refresh_token' => $this->dropboxRefreshToken(),
+                'client_id' => $this->dropboxAppKey(),
+                'client_secret' => $this->dropboxAppSecret(),
+            ]);
+
+            if (! $response->successful() || ! $response->json('access_token')) {
+                throw new RuntimeException('Unable to refresh Dropbox access token: '.($response->json('error_summary') ?: $response->body()));
+            }
+
+            return (string) $response->json('access_token');
+        });
     }
 
     public function history(int $perPage = 15): LengthAwarePaginator
@@ -309,7 +402,14 @@ class BackupService
 
     public function uploadToDropbox(BackupRun $backup): void
     {
-        $token = $this->dropboxToken();
+        try {
+            $token = $this->dropboxAccessToken();
+        } catch (Throwable $exception) {
+            $backup->update(['offsite_status' => 'failed']);
+            $this->log($backup, 'error', 'Could not obtain a Dropbox access token.', ['error' => $exception->getMessage()]);
+
+            return;
+        }
 
         if (! $token) {
             return;
@@ -387,7 +487,11 @@ class BackupService
             $old->delete();
         });
 
-        $token = $this->dropboxToken();
+        try {
+            $token = $this->dropboxAccessToken();
+        } catch (Throwable) {
+            return;
+        }
 
         if (! $token) {
             return;

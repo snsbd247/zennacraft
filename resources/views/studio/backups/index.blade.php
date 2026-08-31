@@ -73,19 +73,42 @@
                 <input type="number" name="dropbox_retention_days" min="1" max="365" class="studio-form-control" value="{{ $dropboxRetentionDays }}" style="max-width:8rem;">
             </div>
             <div class="zc-bk-row">
-                <label>Dropbox access token
-                    <small>{{ $hasDropboxConfigured ? 'A token is already saved — leave blank to keep it' : 'No token saved yet' }}</small>
+                <label>Dropbox App key</label>
+                <input type="text" name="dropbox_app_key" class="studio-form-control" value="{{ $dropboxAppKey }}" placeholder="e.g. 9abc123def456gh" autocomplete="off">
+            </div>
+            <div class="zc-bk-row">
+                <label>Dropbox App secret
+                    <small>{{ $hasDropboxAppSecret ? 'Already saved — leave blank to keep it' : 'Not saved yet' }}</small>
                 </label>
-                <div>
-                    <input type="password" name="dropbox_token" class="studio-form-control" placeholder="{{ $hasDropboxConfigured ? '•••••••••••••••• (saved)' : 'Paste the Dropbox app access token' }}" autocomplete="off">
-                    <div class="zc-bk-hint">
-                        <span class="zc-bk-badge {{ $hasDropboxConfigured ? 'zc-bk-badge--ok' : 'zc-bk-badge--warn' }}">{{ $hasDropboxConfigured ? 'Dropbox connected' : 'Dropbox not connected' }}</span>
-                        — from a Dropbox App Console app with the <b>files.content.write</b> scope.
-                    </div>
-                </div>
+                <input type="password" name="dropbox_app_secret" class="studio-form-control" placeholder="{{ $hasDropboxAppSecret ? '•••••••••••••••• (saved)' : 'Paste the Dropbox App secret' }}" autocomplete="off">
             </div>
             <button type="submit" class="studio-command-button studio-command-button--primary">Save settings</button>
         </form>
+
+        <div class="zc-bk-row" style="margin-top:1.1rem;">
+            <label>Connection</label>
+            <div>
+                <span class="zc-bk-badge {{ $hasDropboxConfigured ? 'zc-bk-badge--ok' : 'zc-bk-badge--warn' }}">{{ $hasDropboxConfigured ? 'Dropbox connected' : 'Dropbox not connected' }}</span>
+                <a href="{{ route('backups.dropbox.connect') }}" class="studio-command-button" style="margin-left:0.6rem;">{{ $hasDropboxConfigured ? 'Reconnect Dropbox' : 'Connect Dropbox' }}</a>
+                <div class="zc-bk-hint">
+                    This uses Dropbox's official renewing connection — once connected, backups keep uploading automatically and it never expires on its own.
+                </div>
+            </div>
+        </div>
+
+        <details style="margin-top:1rem;">
+            <summary style="cursor:pointer;font-weight:700;font-size:0.85rem;color:var(--studio-text);">How to get the App key &amp; App secret (one-time, ~5 minutes)</summary>
+            <ol style="margin:0.8rem 0 0;padding-left:1.2rem;font-size:0.82rem;color:var(--studio-muted);line-height:1.9;">
+                <li>Go to <b>dropbox.com/developers/apps</b> and click <b>Create app</b>.</li>
+                <li>Choose <b>Scoped access</b>, then <b>Full Dropbox</b> (or <b>App folder</b>), give it any name, and create it.</li>
+                <li>Open the <b>Permissions</b> tab, tick <b>files.content.write</b> and <b>files.content.read</b>, then click <b>Submit</b>.</li>
+                <li>Open the <b>Settings</b> tab, copy the <b>App key</b> and <b>App secret</b> — paste them above and click <b>Save settings</b>.</li>
+                <li>Still on the <b>Settings</b> tab, under <b>OAuth 2 → Redirect URIs</b>, add this exact URL and click <b>Add</b>:<br>
+                    <code style="display:inline-block;margin-top:4px;padding:4px 8px;background:var(--studio-surface-soft);border:1px solid var(--studio-border);border-radius:6px;word-break:break-all;">{{ route('backups.dropbox.callback') }}</code>
+                </li>
+                <li>Come back here and click <b>Connect Dropbox</b>, then approve access on Dropbox's page — you'll be sent back here connected.</li>
+            </ol>
+        </details>
     </div>
 
     <div class="zc-bk-card">
