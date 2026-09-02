@@ -131,6 +131,25 @@
         <div class="pdp2__info">
             @if ($product->brand)<div style="font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--honey-deep,#d97706);margin-bottom:6px;">{{ $product->brand->name }}</div>@endif
             <h1 class="pdp2__name">{{ $product->name }}</h1>
+
+            @php
+                $shareFbUrl = 'https://www.facebook.com/sharer/sharer.php?u='.rawurlencode($productUrl);
+                $shareWaUrl = 'https://api.whatsapp.com/send?text='.rawurlencode($product->name.' — '.$productUrl);
+            @endphp
+            <div class="pdp2__share">
+                <span class="pdp2__share-label">Share:</span>
+                <a href="{{ $shareFbUrl }}" target="_blank" rel="noopener" class="pdp2__share-btn pdp2__share-btn--fb" aria-label="Share on Facebook">
+                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M14 9h3l.5-3H14V4.5c0-.9.3-1.5 1.6-1.5H17V.3C16.6.2 15.6 0 14.5 0 12.1 0 10.5 1.5 10.5 4.2V6H8v3h2.5v9H14z"/></svg>
+                </a>
+                <a href="{{ $shareWaUrl }}" target="_blank" rel="noopener" class="pdp2__share-btn pdp2__share-btn--wa" aria-label="Share on WhatsApp">
+                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.5 15.2L2 22l4.9-1.4A10 10 0 1 0 12 2Zm5.3 14.1c-.2.6-1.2 1.1-1.7 1.2-.4.1-1 .1-1.6-.1-.4-.1-.9-.3-1.5-.5-2.7-1.2-4.4-3.9-4.5-4-.1-.2-1-1.3-1-2.5s.6-1.8.9-2c.2-.2.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2 0 .4-.1.5l-.3.4c-.1.1-.2.3-.1.5.1.2.5.9 1.1 1.4.8.7 1.4.9 1.6 1 .2.1.3.1.4-.1l.6-.7c.1-.2.3-.1.5-.1l1.8.9c.2.1.4.2.4.3.1.1.1.5-.1 1Z"/></svg>
+                </a>
+                <button type="button" class="pdp2__share-btn pdp2__share-btn--copy" aria-label="Copy product link" data-share-copy data-share-link="{{ $productUrl }}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+                </button>
+            </div>
+            <div id="pdp2-share-toast" class="pdp2-imo-toast">Product link copied!</div>
+
             @if ($product->short_description)<p class="pdp2__short">{{ $product->short_description }}</p>@endif
 
             <div class="pdp2__price">
@@ -447,6 +466,19 @@
             }
             imoToast.classList.add('is-on');
             setTimeout(function () { imoToast.classList.remove('is-on'); }, 2500);
+        });
+    }
+
+    // Share: copy-link button
+    var shareCopy = document.querySelector('[data-share-copy]'), shareToast = document.getElementById('pdp2-share-toast');
+    if (shareCopy && shareToast) {
+        shareCopy.addEventListener('click', function () {
+            var link = shareCopy.getAttribute('data-share-link');
+            if (navigator.clipboard && link) {
+                navigator.clipboard.writeText(link).catch(function () {});
+            }
+            shareToast.classList.add('is-on');
+            setTimeout(function () { shareToast.classList.remove('is-on'); }, 2500);
         });
     }
 
