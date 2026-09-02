@@ -30,8 +30,23 @@ class ImoButtonTest extends TestCase
         app(ThemeService::class)->set('social_whatsapp', '01814802802');
         app(ThemeService::class)->set('social_imo', '01911223344');
 
-        $this->get('/')->assertOk()
+        $html = $this->get('/')->assertOk()
             ->assertSee('https://wa.me/8801814802802?text=', false)
-            ->assertSee('imo://chat?phone=8801911223344', false);
+            ->assertSee('imo://chat?phone=8801911223344', false)
+            ->getContent();
+
+        // Regression guard: a stray `class="..." @class([...])` combo on the
+        // IMO anchor once produced two class="" attributes on one element —
+        // browsers silently drop the second, so zc-imofab--stacked (which
+        // pushes IMO above WhatsApp instead of sitting on top of it) never
+        // actually applied even though the string was present in the HTML.
+        // Assert it lands in ONE merged class attribute instead.
+        $this->assertMatchesRegularExpression(
+            '/<a[^>]*class="[^"]*\bzc-imofab\b[^"]*\bzc-imofab--stacked\b[^"]*"[^>]*>/',
+            $html
+        );
+        preg_match('/<a[^>]*\bzc-imofab\b[^>]*>/', $html, $tag);
+        $this->assertNotEmpty($tag, 'IMO button anchor not found.');
+        $this->assertSame(1, substr_count($tag[0], 'class="'), 'IMO button anchor has more than one class="" attribute.');
     }
 }
