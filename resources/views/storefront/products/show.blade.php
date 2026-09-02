@@ -44,6 +44,23 @@
 
     $contactPhone = $themeValue('contact_phone');
     $contactWa = $themeValue('contact_whatsapp', $themeValue('social_whatsapp'));
+    $contactImo = $themeValue('social_imo');
+    $productUrl = route('storefront.product.show', $product->slug);
+
+    // WhatsApp "Message Now" opens pre-filled with the product name + link so
+    // the agent on the other end knows exactly what's being asked about.
+    $waProductMsg = 'আসসালামু আলাইকুম! আমি এই পণ্যটি সম্পর্কে জানতে চাই: '.$product->name.' — '.$productUrl;
+    $waDigits = preg_replace('/[^0-9]/', '', (string) $contactWa);
+    $waLink = $waDigits !== '' ? 'https://wa.me/'.$waDigits.'?text='.rawurlencode($waProductMsg) : null;
+
+    // IMO has no official pre-filled-message deep link like WhatsApp's, so the
+    // link just opens the chat — the product link is copied to the clipboard
+    // (see the script below) so the customer can paste it in themselves.
+    $imoDigits = preg_replace('/\D/', '', (string) $contactImo);
+    if ($imoDigits !== '' && str_starts_with($imoDigits, '0')) {
+        $imoDigits = '88'.$imoDigits;
+    }
+    $imoLink = strlen($imoDigits) >= 10 ? 'imo://chat?phone='.$imoDigits : null;
 
     // Studio options the PDP surfaces: size chart, video, artisan/origin, stock.
     $sizeChartUrl = $mediaUrl($product->sizeChart ?? null);
@@ -215,7 +232,7 @@
                 </div>
             </form>
 
-            @if ($contactPhone || $contactWa)
+            @if ($contactPhone || $waLink || $imoLink)
                 <div class="pdp2__contact">
                     @if ($contactPhone)
                         <a href="tel:{{ preg_replace('/[^0-9+]/', '', $contactPhone) }}" class="pdp2__cc pdp2__cc--call">
@@ -223,13 +240,20 @@
                             <span><span class="l">Call Now</span><span class="v">{{ $contactPhone }}</span></span>
                         </a>
                     @endif
-                    @if ($contactWa)
-                        <a href="https://wa.me/{{ preg_replace('/[^0-9]/', '', $contactWa) }}" target="_blank" rel="noopener" class="pdp2__cc pdp2__cc--wa">
+                    @if ($waLink)
+                        <a href="{{ $waLink }}" target="_blank" rel="noopener" class="pdp2__cc pdp2__cc--wa">
                             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.5 15.2L2 22l4.9-1.4A10 10 0 1 0 12 2Zm5.3 14.1c-.2.6-1.2 1.1-1.7 1.2-.4.1-1 .1-1.6-.1-.4-.1-.9-.3-1.5-.5-2.7-1.2-4.4-3.9-4.5-4-.1-.2-1-1.3-1-2.5s.6-1.8.9-2c.2-.2.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2 0 .4-.1.5l-.3.4c-.1.1-.2.3-.1.5.1.2.5.9 1.1 1.4.8.7 1.4.9 1.6 1 .2.1.3.1.4-.1l.6-.7c.1-.2.3-.1.5-.1l1.8.9c.2.1.4.2.4.3.1.1.1.5-.1 1Z"/></svg>
                             <span><span class="l">Message Now</span><span class="v">{{ $contactWa }}</span></span>
                         </a>
                     @endif
+                    @if ($imoLink)
+                        <a href="{{ $imoLink }}" data-imo-cc data-imo-link="{{ $productUrl }}" class="pdp2__cc pdp2__cc--imo">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/><path fill="#fff" d="M7 9.2c0-.9.7-1.6 1.6-1.6s1.6.7 1.6 1.6v5.6a1.6 1.6 0 1 1-3.2 0Zm5.4 0c0-.9.7-1.6 1.6-1.6s1.6.7 1.6 1.6v5.6a1.6 1.6 0 1 1-3.2 0Z"/></svg>
+                            <span><span class="l">Message on IMO</span><span class="v">{{ $contactImo }}</span></span>
+                        </a>
+                    @endif
                 </div>
+                <div id="pdp2-imo-toast" class="pdp2-imo-toast">Product link copied — paste it in IMO</div>
             @endif
         </div>
     </div>
@@ -411,6 +435,20 @@
         document.querySelectorAll('[data-addon-pick]').forEach(function(cb){ cb.addEventListener('change', sync); });
         sync();
     })();
+
+    // IMO has no pre-filled-message deep link, so copy the product link to the
+    // clipboard as the chat opens — the customer just pastes it in.
+    var imoCc = document.querySelector('[data-imo-cc]'), imoToast = document.getElementById('pdp2-imo-toast');
+    if (imoCc && imoToast) {
+        imoCc.addEventListener('click', function () {
+            var link = imoCc.getAttribute('data-imo-link');
+            if (navigator.clipboard && link) {
+                navigator.clipboard.writeText(link).catch(function () {});
+            }
+            imoToast.classList.add('is-on');
+            setTimeout(function () { imoToast.classList.remove('is-on'); }, 2500);
+        });
+    }
 
     // Submit
     var form=document.getElementById('pdp2-form');
