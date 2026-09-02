@@ -18,12 +18,27 @@
     .zc-cfg-sec:hover{box-shadow:0 1px 2px rgba(16,24,40,0.05), 0 26px 56px -36px rgba(16,24,40,0.4);}
     .zc-cfg-sec > h3{margin:0;padding:1rem 1.25rem;background:var(--studio-surface-soft);font-size:0.92rem;font-weight:800;letter-spacing:.01em;color:var(--studio-text);border-bottom:1px solid var(--studio-border);text-align:center;}
     .zc-cfg-desc{padding:0.75rem 1.1rem 0;font-size:0.8rem;color:var(--studio-muted);line-height:1.55;}
-    .zc-cfg-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.25rem 1.5rem;padding:1.35rem;}
-    .zc-cfg-f label{display:block;font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--studio-muted);margin-bottom:.5rem;}
+    .zc-cfg-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.4rem 1.5rem;padding:1.4rem;}
+    .zc-cfg-f label{display:block;font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--studio-muted);margin-bottom:.55rem;}
     .zc-cfg-f.full{grid-column:1/-1;}
     .zc-cfg-help{margin-top:.5rem;font-size:.76rem;line-height:1.55;color:var(--studio-muted);}
-    .zc-cfg-f .studio-form-control{transition:border-color .16s ease, box-shadow .16s ease;}
-    .zc-cfg-f .studio-form-control:focus{border-color:rgba(201,154,59,0.55) !important;box-shadow:0 0 0 3px rgba(201,154,59,0.12) !important;outline:none;}
+    .zc-cfg-f .studio-form-control{
+        min-height:2.9rem;padding:0.7rem 1rem;
+        background:linear-gradient(180deg, rgba(255,253,247,1), rgba(252,249,240,0.7)) !important;
+        border-radius:12px !important;
+        transition:border-color .16s ease, box-shadow .16s ease, background .16s ease;
+    }
+    .zc-cfg-f textarea.studio-form-control{min-height:9rem;line-height:1.65;}
+    .zc-cfg-f .studio-form-control:hover{border-color:rgba(201,154,59,0.4) !important;}
+    .zc-cfg-f .studio-form-control:focus{
+        border-color:rgba(201,154,59,0.6) !important;
+        box-shadow:0 0 0 4px rgba(201,154,59,0.14) !important;
+        background:#fffdf8 !important;
+        outline:none;
+    }
+    .zc-cfg-f-inputwrap{position:relative;}
+    .zc-cfg-f-inputwrap .studio-form-control{padding-left:2.7rem;}
+    .zc-cfg-f-inputwrap svg{position:absolute;left:0.85rem;top:50%;transform:translateY(-50%);width:1.15rem;height:1.15rem;pointer-events:none;}
     /* Higher specificity than ".zc-cfg-f label" above — see form.blade.php
        for why the checkbox row needs this rather than the generic label rule. */
     .zc-cfg-f--checkbox{align-self:end;}
@@ -75,6 +90,20 @@
             </div>
         @endif
 
+        @php
+            // Recognisable icons for the handful of fields whose value is a
+            // known brand/contact channel — purely visual, keyed by field key
+            // so it doesn't require touching every field's config array.
+            $fieldIcons = [
+                'contact_phone' => ['color' => '#1f7a3d', 'svg' => '<path d="M4 5c0 9 6 15 15 15l-.5-4-4-1-2 2c-2-1-4-3-5-5l2-2-1-4z"/>'],
+                'contact_email' => ['color' => '#8a5f2c', 'svg' => '<rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="m3 7 9 6 9-6" fill="none" stroke="currentColor" stroke-width="1.6"/>'],
+                'social_facebook' => ['color' => '#1877f2', 'svg' => '<path d="M14 9h3l.5-3H14V4.5c0-.9.3-1.5 1.6-1.5H17V.3C16.6.2 15.6 0 14.5 0 12.1 0 10.5 1.5 10.5 4.2V6H8v3h2.5v9H14z"/>'],
+                'social_instagram' => ['color' => '#c1327a', 'svg' => '<rect x="3" y="3" width="18" height="18" rx="5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="17.2" cy="6.8" r="1.2"/>'],
+                'social_youtube' => ['color' => '#ff0000', 'svg' => '<path d="M23 12s0-3.5-.45-5.17a2.7 2.7 0 0 0-1.9-1.9C18.98 4.5 12 4.5 12 4.5s-6.98 0-8.65.43a2.7 2.7 0 0 0-1.9 1.9C1 8.5 1 12 1 12s0 3.5.45 5.17a2.7 2.7 0 0 0 1.9 1.9c1.67.43 8.65.43 8.65.43s6.98 0 8.65-.43a2.7 2.7 0 0 0 1.9-1.9C23 15.5 23 12 23 12ZM9.75 15.02V8.98L15.5 12Z"/>'],
+                'social_whatsapp' => ['color' => '#25d366', 'svg' => '<path d="M12 2a10 10 0 0 0-8.5 15.2L2 22l4.9-1.4A10 10 0 1 0 12 2Zm5.3 14.1c-.2.6-1.2 1.1-1.7 1.2-.4.1-1 .1-1.6-.1-.4-.1-.9-.3-1.5-.5-2.7-1.2-4.4-3.9-4.5-4-.1-.2-1-1.3-1-2.5s.6-1.8.9-2c.2-.2.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2 0 .4-.1.5l-.3.4c-.1.1-.2.3-.1.5.1.2.5.9 1.1 1.4.8.7 1.4.9 1.6 1 .2.1.3.1.4-.1l.6-.7c.1-.2.3-.1.5-.1l1.8.9c.2.1.4.2.4.3.1.1.1.5-.1 1Z"/>'],
+                'social_imo' => ['color' => '#19b1e6', 'svg' => '<path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round" d="M12 2.5C6.7 2.5 2.5 6.2 2.5 10.7c0 2.4 1.2 4.6 3.2 6.1l-.9 3.7 4.3-2c.9.2 1.9.3 2.9.3 5.3 0 9.5-3.7 9.5-8.1S17.3 2.5 12 2.5Z"/><text x="12" y="13.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="800" font-size="7" fill="currentColor" stroke="none">imo</text>'],
+            ];
+        @endphp
         <form class="zc-cfg" method="POST" enctype="multipart/form-data" action="{{ route('website.'.$page.'.save') }}" style="margin-top:0.5rem;">
             @csrf @method('PUT')
             @foreach ($cfg['sections'] as $section)
@@ -85,7 +114,7 @@
                         @foreach ($section['fields'] as $f)
                             @php $type = $f['type'] ?? 'text'; $val = $values[$f['key']] ?? ($f['default'] ?? ''); @endphp
                             @if ($type === 'textarea')
-                                <div class="zc-cfg-f full"><label>{{ $f['label'] }}</label><textarea name="{{ $f['key'] }}" rows="3" class="studio-form-control">{{ $val }}</textarea>
+                                <div class="zc-cfg-f full"><label>{{ $f['label'] }}</label><textarea name="{{ $f['key'] }}" rows="4" class="studio-form-control">{{ $val }}</textarea>
                                     @if (!empty($f['help']))<div class="zc-cfg-help">{{ $f['help'] }}</div>@endif
                                 </div>
                             @elseif ($type === 'color')
@@ -120,7 +149,12 @@
                                     @if (!empty($f['help']))<div class="zc-cfg-help">{{ $f['help'] }}</div>@endif
                                 </div>
                             @else
-                                <div class="zc-cfg-f"><label>{{ $f['label'] }}</label><input type="text" name="{{ $f['key'] }}" value="{{ $val }}" class="studio-form-control" autocomplete="off">
+                                @php $icon = $fieldIcons[$f['key']] ?? null; @endphp
+                                <div class="zc-cfg-f"><label>{{ $f['label'] }}</label>
+                                    <div @class(['zc-cfg-f-inputwrap' => $icon])>
+                                        @if ($icon)<svg viewBox="0 0 24 24" fill="currentColor" style="color:{{ $icon['color'] }};" aria-hidden="true">{!! $icon['svg'] !!}</svg>@endif
+                                        <input type="text" name="{{ $f['key'] }}" value="{{ $val }}" class="studio-form-control" autocomplete="off">
+                                    </div>
                                     @if (!empty($f['help']))<div class="zc-cfg-help">{{ $f['help'] }}</div>@endif
                                 </div>
                             @endif
