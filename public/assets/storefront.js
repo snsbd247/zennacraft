@@ -291,3 +291,19 @@ document.addEventListener('DOMContentLoaded', function () {
 
     start();
 })();
+
+// Floating IMO button: IMO has no web fallback, so on desktop (no IMO app to
+// catch the imo:// link) clicking it would otherwise do nothing visible —
+// copy the number and show a toast so the click always does *something*.
+(function () {
+    var fab = document.querySelector('[data-imo-fab-cc]'), toast = document.getElementById('zc-imo-fab-toast');
+    if (!fab || !toast) return;
+    fab.addEventListener('click', function () {
+        var number = fab.getAttribute('data-imo-number');
+        if (navigator.clipboard && number) {
+            navigator.clipboard.writeText(number).catch(function () {});
+        }
+        toast.classList.add('is-on');
+        setTimeout(function () { toast.classList.remove('is-on'); }, 3000);
+    });
+})();
