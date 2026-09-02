@@ -337,7 +337,7 @@
 @endif
 @if ($imoLink)
 <a href="{{ $imoLink }}" @class(['zc-imofab', 'zc-no-print', 'zc-imofab--stacked' => $whatsappLink]) aria-label="Chat with us on IMO" data-imo-fab-cc data-imo-number="{{ $socialLinks['imo'] }}">
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path fill="#fff" d="M7 9.2c0-.9.7-1.6 1.6-1.6s1.6.7 1.6 1.6v5.6a1.6 1.6 0 1 1-3.2 0Zm5.4 0c0-.9.7-1.6 1.6-1.6s1.6.7 1.6 1.6v5.6a1.6 1.6 0 1 1-3.2 0Z"/></svg>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round" d="M12 2.5C6.7 2.5 2.5 6.2 2.5 10.7c0 2.4 1.2 4.6 3.2 6.1l-.9 3.7 4.3-2c.9.2 1.9.3 2.9.3 5.3 0 9.5-3.7 9.5-8.1S17.3 2.5 12 2.5Z"/><text x="12" y="13.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="800" font-size="7.2" fill="currentColor" stroke="none" letter-spacing="-0.3">imo</text></svg>
     <span class="zc-wafab__label">IMO</span>
 </a>
 <div id="zc-imo-fab-toast" class="zc-imo-fab-toast zc-no-print">IMO number copied — {{ $socialLinks['imo'] }}. No IMO app found? Save it and message us there.</div>
@@ -370,7 +370,7 @@
         @endif
         @if ($imoLink)
         <a href="{{ $imoLink }}" class="zc-botnav__imo" aria-label="Chat on IMO">
-            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/><path fill="#fff" d="M7 9.2c0-.9.7-1.6 1.6-1.6s1.6.7 1.6 1.6v5.6a1.6 1.6 0 1 1-3.2 0Zm5.4 0c0-.9.7-1.6 1.6-1.6s1.6.7 1.6 1.6v5.6a1.6 1.6 0 1 1-3.2 0Z"/></svg><span>IMO</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round" d="M12 2.5C6.7 2.5 2.5 6.2 2.5 10.7c0 2.4 1.2 4.6 3.2 6.1l-.9 3.7 4.3-2c.9.2 1.9.3 2.9.3 5.3 0 9.5-3.7 9.5-8.1S17.3 2.5 12 2.5Z"/><text x="12" y="13.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="800" font-size="7.2" fill="currentColor" stroke="none" letter-spacing="-0.3">imo</text></svg><span>IMO</span>
         </a>
         @endif
         @if (! $whatsappLink && ! $imoLink)
