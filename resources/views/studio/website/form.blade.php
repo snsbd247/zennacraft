@@ -4,12 +4,26 @@
 @push('studio-styles')@include('studio.products.partials._submodule-styles')
 <style>
     .zc-cfg{max-width:960px;margin:0 auto;}
-    .zc-cfg-sec{margin-top:1.1rem;background:var(--studio-surface);border:1px solid var(--studio-border);border-radius:18px;overflow:hidden;box-shadow:0 1px 2px rgba(15,23,42,.05),0 22px 48px -38px rgba(15,23,42,.30);}
-    .zc-cfg-sec > h3{margin:0;padding:.95rem 1.25rem;background:var(--studio-surface-soft);font-size:0.92rem;font-weight:800;color:var(--studio-text);border-bottom:1px solid var(--studio-border);text-align:center;}
-    .zc-cfg-desc{padding:0.7rem 1.1rem 0;font-size:0.8rem;color:var(--studio-muted);}
-    .zc-cfg-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.15rem 1.4rem;padding:1.25rem;}
-    .zc-cfg-f label{display:block;font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--studio-muted);margin-bottom:.45rem;}
+    .zc-cfg-sec{
+        position:relative;overflow:hidden;margin-top:1.25rem;border-radius:18px;
+        background:
+            radial-gradient(circle at 100% 0%, rgba(212,180,131,0.06), transparent 42%),
+            linear-gradient(180deg, rgba(255,253,247,0.02), rgba(255,253,247,0)),
+            var(--studio-surface);
+        border:1px solid var(--studio-border);
+        box-shadow:0 1px 2px rgba(16,24,40,0.04), 0 20px 50px -40px rgba(16,24,40,0.35);
+        transition:box-shadow .18s ease;
+    }
+    .zc-cfg-sec::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(212,180,131,0.55),transparent);}
+    .zc-cfg-sec:hover{box-shadow:0 1px 2px rgba(16,24,40,0.05), 0 26px 56px -36px rgba(16,24,40,0.4);}
+    .zc-cfg-sec > h3{margin:0;padding:1rem 1.25rem;background:var(--studio-surface-soft);font-size:0.92rem;font-weight:800;letter-spacing:.01em;color:var(--studio-text);border-bottom:1px solid var(--studio-border);text-align:center;}
+    .zc-cfg-desc{padding:0.75rem 1.1rem 0;font-size:0.8rem;color:var(--studio-muted);line-height:1.55;}
+    .zc-cfg-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.25rem 1.5rem;padding:1.35rem;}
+    .zc-cfg-f label{display:block;font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--studio-muted);margin-bottom:.5rem;}
     .zc-cfg-f.full{grid-column:1/-1;}
+    .zc-cfg-help{margin-top:.5rem;font-size:.76rem;line-height:1.55;color:var(--studio-muted);}
+    .zc-cfg-f .studio-form-control{transition:border-color .16s ease, box-shadow .16s ease;}
+    .zc-cfg-f .studio-form-control:focus{border-color:rgba(201,154,59,0.55) !important;box-shadow:0 0 0 3px rgba(201,154,59,0.12) !important;outline:none;}
     /* Higher specificity than ".zc-cfg-f label" above — see form.blade.php
        for why the checkbox row needs this rather than the generic label rule. */
     .zc-cfg-f--checkbox{align-self:end;}
@@ -71,7 +85,9 @@
                         @foreach ($section['fields'] as $f)
                             @php $type = $f['type'] ?? 'text'; $val = $values[$f['key']] ?? ($f['default'] ?? ''); @endphp
                             @if ($type === 'textarea')
-                                <div class="zc-cfg-f full"><label>{{ $f['label'] }}</label><textarea name="{{ $f['key'] }}" rows="3" class="studio-form-control">{{ $val }}</textarea></div>
+                                <div class="zc-cfg-f full"><label>{{ $f['label'] }}</label><textarea name="{{ $f['key'] }}" rows="3" class="studio-form-control">{{ $val }}</textarea>
+                                    @if (!empty($f['help']))<div class="zc-cfg-help">{{ $f['help'] }}</div>@endif
+                                </div>
                             @elseif ($type === 'color')
                                 @php $hex = preg_match('/^#[0-9a-fA-F]{6}$/', (string) $val) ? $val : ($f['default'] ?? '#000000'); @endphp
                                 <div class="zc-cfg-f"><label>{{ $f['label'] }}</label>
@@ -79,25 +95,34 @@
                                         <input type="color" class="zc-color2__pick" value="{{ $hex }}" data-sync aria-label="{{ $f['label'] }}">
                                         <input type="text" name="{{ $f['key'] }}" class="studio-form-control zc-color2__hex" value="{{ $val ?: ($f['default'] ?? '') }}" data-hexinput placeholder="#000000" autocomplete="off">
                                     </div>
+                                    @if (!empty($f['help']))<div class="zc-cfg-help">{{ $f['help'] }}</div>@endif
                                 </div>
                             @elseif ($type === 'select')
                                 <div class="zc-cfg-f"><label>{{ $f['label'] }}</label>
                                     <select name="{{ $f['key'] }}" class="studio-form-control" style="font-family:'{{ $val ?: '' }}',inherit;">
                                         @foreach ($f['options'] as $opt)<option value="{{ $opt }}" @selected($val === $opt) style="font-family:'{{ $opt }}',sans-serif;">{{ $opt }}</option>@endforeach
                                     </select>
+                                    @if (!empty($f['help']))<div class="zc-cfg-help">{{ $f['help'] }}</div>@endif
                                 </div>
                             @elseif ($type === 'image')
                                 <div class="zc-cfg-f"><label>{{ $f['label'] }}</label>
                                     @if (!empty($images[$f['key']]))<img src="{{ $images[$f['key']] }}" alt="" class="zc-img-prev">@endif
                                     <input type="file" name="{{ $f['key'] }}" accept="image/*" class="studio-form-control">
                                     @if (!empty($f['hint']))<div style="display:inline-flex;align-items:center;gap:7px;margin-top:8px;font-size:0.76rem;font-weight:600;color:var(--studio-muted);background:var(--studio-surface-soft);border:1px dashed var(--studio-border);border-radius:9px;padding:6px 10px;">📐 Recommended: <b style="color:var(--studio-text);font-weight:800;">{{ $f['hint'] }}</b></div>@endif
+                                    @if (!empty($f['help']))<div class="zc-cfg-help">{{ $f['help'] }}</div>@endif
                                 </div>
                             @elseif ($type === 'checkbox')
-                                <div class="zc-cfg-f zc-cfg-f--checkbox"><label class="zc-cfg-check"><input type="checkbox" name="{{ $f['key'] }}" value="1" @checked(filter_var($val, FILTER_VALIDATE_BOOLEAN))> {{ $f['label'] }}</label></div>
+                                <div class="zc-cfg-f zc-cfg-f--checkbox"><label class="zc-cfg-check"><input type="checkbox" name="{{ $f['key'] }}" value="1" @checked(filter_var($val, FILTER_VALIDATE_BOOLEAN))> {{ $f['label'] }}</label>
+                                    @if (!empty($f['help']))<div class="zc-cfg-help">{{ $f['help'] }}</div>@endif
+                                </div>
                             @elseif ($type === 'datetime')
-                                <div class="zc-cfg-f"><label>{{ $f['label'] }}</label><input type="datetime-local" name="{{ $f['key'] }}" value="{{ $val }}" class="studio-form-control"></div>
+                                <div class="zc-cfg-f"><label>{{ $f['label'] }}</label><input type="datetime-local" name="{{ $f['key'] }}" value="{{ $val }}" class="studio-form-control">
+                                    @if (!empty($f['help']))<div class="zc-cfg-help">{{ $f['help'] }}</div>@endif
+                                </div>
                             @else
-                                <div class="zc-cfg-f"><label>{{ $f['label'] }}</label><input type="text" name="{{ $f['key'] }}" value="{{ $val }}" class="studio-form-control" autocomplete="off"></div>
+                                <div class="zc-cfg-f"><label>{{ $f['label'] }}</label><input type="text" name="{{ $f['key'] }}" value="{{ $val }}" class="studio-form-control" autocomplete="off">
+                                    @if (!empty($f['help']))<div class="zc-cfg-help">{{ $f['help'] }}</div>@endif
+                                </div>
                             @endif
                         @endforeach
                     </div>

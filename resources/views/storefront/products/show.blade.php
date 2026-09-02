@@ -249,7 +249,7 @@
                     @if ($imoLink)
                         <a href="{{ $imoLink }}" data-imo-cc data-imo-link="{{ $productUrl }}" class="pdp2__cc pdp2__cc--imo">
                             <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/><path fill="#fff" d="M7 9.2c0-.9.7-1.6 1.6-1.6s1.6.7 1.6 1.6v5.6a1.6 1.6 0 1 1-3.2 0Zm5.4 0c0-.9.7-1.6 1.6-1.6s1.6.7 1.6 1.6v5.6a1.6 1.6 0 1 1-3.2 0Z"/></svg>
-                            <span><span class="l">Message on IMO</span><span class="v">{{ $contactImo }}</span></span>
+                            <span><span class="l">Message IMO</span><span class="v">{{ $contactImo }}</span></span>
                         </a>
                     @endif
                 </div>
